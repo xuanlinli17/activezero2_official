@@ -29,8 +29,8 @@ SPECULAR_MAX = 0.8
 TRANSMISSION_MIN = 0.0
 TRANSMISSION_MAX = 1.0
 
-PRIMITIVE_MIN = 8 # 25
-PRIMITIVE_MAX = 130 # 100 # 50
+PRIMITIVE_MIN = 10 # 25
+PRIMITIVE_MAX = 250 # 100 # 50
 
 
 
@@ -157,7 +157,7 @@ def create_realsense(camera_type: str, camera_name: str, default_resolution: tup
         # color fovy
         fov = 0.742501437664032
     elif camera_type == 'd435':
-        fov = 0.742501437664032
+        fov = 0.78 # 0.742501437664032
     else:
         raise NotImplementedError()
     name = camera_name
@@ -188,12 +188,12 @@ def create_realsense(camera_type: str, camera_name: str, default_resolution: tup
             )
     elif camera_type == 'd435':
         tran_pose1 = sapien.Pose(
-            [-0.000258044, -0.0147611, -0.000184758],
-            [0.999995, -0.000861459, 0.00270606, -0.00121069],
+            [0.000156505, -0.0148977, -1.15315e-05], 
+            [0.999964, -0.00674623, 0.00143998, -0.00484543]
         )
         tran_pose2 = sapien.Pose(
-            [-1.21578e-05, -0.064705, -6.35905e-05],
-            [0.999995, -0.000861459, 0.00270606, -0.00121069],
+            [-0.000328569, -0.0650479, 0.000665889],
+            [0.999964, -0.00674623, 0.00143998, -0.00484543]
         )
     else:
         raise NotImplementedError()
@@ -321,8 +321,8 @@ def get_random_pose(h=0.02):
     # random_x = np.random.uniform(0.0, 0.6, 1)[0]
     # random_y = np.random.uniform(-0.3, 0.3, 1)[0]
     # random_z = np.random.uniform(0, 0.1, 1)[0]
-    random_x = np.random.uniform(-0.15, 1.0, 1)[0]
-    random_y = np.random.uniform(-0.35, 0.35, 1)[0]
+    random_x = np.random.uniform(-0.65, 1.6, 1)[0]
+    random_y = np.random.uniform(-0.8, 1.0, 1)[0]
     random_z = np.random.uniform(0, 0.75, 1)[0]
     R = rand_rotation_matrix()
     T = np.hstack((R, np.array([[random_x], [random_y], [random_z]])))
@@ -488,7 +488,7 @@ def load_random_primitives_v2(scene, renderer, idx):
     return primitive_info
 
 
-def check_camera_collision_with_primitive_dict(pos, primitive_info, eps=0.005):
+def check_camera_collision_with_primitive_dict(pos, primitive_info, eps=0.01):
     # check whether the camera collides with any of the primitive shapes
     cam_pose = np.eye(4)
     cam_pose[:3, 3] = pos

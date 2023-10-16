@@ -74,19 +74,19 @@ def render_scene(
             os.path.join(materials_root, "cam_irR_rel_extrinsic_hand.txt")
         )  # camR -> cam0
     elif camera_type == 'd435':
-        default_resolution = (640, 360)
-        cam_intrinsic_base = np.array([[458.514, 0, 316.521], [0, 458.728, 184.421], [0, 0, 1]]) # intrinsic under default resolution
-        cam_ir_intrinsic_base = np.array(cam_intrinsic_base)
+        default_resolution = (848, 480)
+        cam_intrinsic_base = np.array([[605.12158203125,     0., 424.5927734375], [0.,    604.905517578125, 236.668975830078], [0, 0, 1]]) # intrinsic under default resolution
+        cam_ir_intrinsic_base = np.array([[430.139801025391,   0., 425.162841796875], [0.,   430.139801025391, 235.276519775391], [0, 0, 1]])
         cam_intrinsic_hand = np.array(cam_intrinsic_base)
         cam_ir_intrinsic_hand = np.array(cam_intrinsic_base)
-        cam_irL_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -2.5804399e-04],
-                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -1.4761100e-02],
-                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -1.8475000e-04],
-                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
-        cam_irR_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -1.2157800e-05],
-                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -6.4704999e-02],
-                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -6.3590502e-05],
-                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
+        cam_irL_rel_extrinsic_base = np.array([[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, 0.00015650546993128955],
+                                              [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.014897654764354229],
+                                              [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, -1.1531494237715378e-05],
+                                              [0.0, 0.0, 0.0, 1.0]])
+        cam_irR_rel_extrinsic_base = np.array([[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, -0.0003285693528596312],
+                                              [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.06504792720079422],
+                                              [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, 0.0006658887723460793],
+                                              [0.0, 0.0, 0.0, 1.0]])
         cam_irL_rel_extrinsic_hand = np.array(cam_irL_rel_extrinsic_base)
         cam_irR_rel_extrinsic_hand = np.array(cam_irR_rel_extrinsic_base)
     else:
@@ -341,7 +341,7 @@ def render_scene(
                 alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
                 cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
                 if primitives or primitives_v2:
-                    if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.005):
+                    if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.01):
                         break
                 else:
                     break
@@ -520,19 +520,19 @@ def render_gt_depth_label(
             os.path.join(materials_root, "cam_irR_rel_extrinsic_hand.txt")
         )  # camR -> cam0
     elif camera_type == 'd435':
-        default_resolution = (640, 360)
-        cam_intrinsic_base = np.array([[458.514, 0, 316.521], [0, 458.728, 184.421], [0, 0, 1]]) # intrinsic under default resolution
-        cam_ir_intrinsic_base = np.array(cam_intrinsic_base)
+        default_resolution = (848, 480)
+        cam_intrinsic_base = np.array([[605.12158203125,     0., 424.5927734375], [0.,    604.905517578125, 236.668975830078], [0, 0, 1]]) # intrinsic under default resolution
+        cam_ir_intrinsic_base = np.array([[430.139801025391,   0., 425.162841796875], [0.,   430.139801025391, 235.276519775391], [0, 0, 1]])
         cam_intrinsic_hand = np.array(cam_intrinsic_base)
         cam_ir_intrinsic_hand = np.array(cam_intrinsic_base)
-        cam_irL_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -2.5804399e-04],
-                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -1.4761100e-02],
-                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -1.8475000e-04],
-                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
-        cam_irR_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -1.2157800e-05],
-                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -6.4704999e-02],
-                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -6.3590502e-05],
-                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
+        cam_irL_rel_extrinsic_base = np.array([[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, 0.00015650546993128955],
+                                              [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.014897654764354229],
+                                              [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, -1.1531494237715378e-05],
+                                              [0.0, 0.0, 0.0, 1.0]])
+        cam_irR_rel_extrinsic_base = np.array([[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, -0.0003285693528596312],
+                                              [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.06504792720079422],
+                                              [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, 0.0006658887723460793],
+                                              [0.0, 0.0, 0.0, 1.0]])
         cam_irL_rel_extrinsic_hand = np.array(cam_irL_rel_extrinsic_base)
         cam_irR_rel_extrinsic_hand = np.array(cam_irR_rel_extrinsic_base)
     else:
