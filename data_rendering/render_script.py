@@ -16,7 +16,7 @@ CUR_DIR = os.path.dirname(__file__)
 REPO_ROOT = os.path.abspath(osp.join(osp.dirname(__file__), ".."))
 sys.path.insert(0, REPO_ROOT)
 from data_rendering.render_scene import render_gt_depth_label, render_scene, SCENE_DIR
-from data_rendering.utils.render_utils import load_pickle
+from data_rendering.utils.render_utils import load_pickle, timeout
 
 if __name__ == "__main__":
     import argparse
@@ -143,24 +143,26 @@ if __name__ == "__main__":
         #         continue
 
         logger.info(f"Rendering scene {sc}")
-        render_scene(
-            sim=sim,
-            renderer=renderer,
-            scene_id=sc,
-            repo_root=repo_root,
-            target_root=data_root,
-            camera_type=args.camera_type,
-            camera_resolution=args.camera_resolution,
-            spp=spp,
-            num_views=num_view,
-            rand_pattern=args.rand_pattern,
-            fixed_angle=args.fixed_angle,
-            primitives=args.primitives,
-            primitives_v2=args.primitives_v2,
-            rand_lighting=args.rand_lighting,
-            rand_table=args.rand_table,
-            rand_env=args.rand_env,
-        )
+        
+        with timeout(seconds=50+25*num_view):
+            render_scene(
+                sim=sim,
+                renderer=renderer,
+                scene_id=sc,
+                repo_root=repo_root,
+                target_root=data_root,
+                camera_type=args.camera_type,
+                camera_resolution=args.camera_resolution,
+                spp=spp,
+                num_views=num_view,
+                rand_pattern=args.rand_pattern,
+                fixed_angle=args.fixed_angle,
+                primitives=args.primitives,
+                primitives_v2=args.primitives_v2,
+                rand_lighting=args.rand_lighting,
+                rand_table=args.rand_table,
+                rand_env=args.rand_env,
+            )
 
     renderer = None
     sim = None

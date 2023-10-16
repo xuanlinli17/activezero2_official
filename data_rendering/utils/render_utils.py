@@ -3,6 +3,7 @@ import json
 import os
 import pickle
 import random
+import signal
 from collections import OrderedDict
 
 import cv2
@@ -531,3 +532,15 @@ def visualize_depth(depth):
     vis_depth = (vis_depth[:, :, :3] * 255.0).astype(np.uint8)
     vis_depth = cv2.cvtColor(vis_depth, cv2.COLOR_RGB2BGR)
     return vis_depth
+
+class timeout:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+    def handle_timeout(self, signum, frame):
+        raise Exception(self.error_message)
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
