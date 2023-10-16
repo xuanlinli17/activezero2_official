@@ -28,8 +28,8 @@ SPECULAR_MAX = 0.8
 TRANSMISSION_MIN = 0.0
 TRANSMISSION_MAX = 1.0
 
-PRIMITIVE_MIN = 25
-PRIMITIVE_MAX = 50
+PRIMITIVE_MIN = 10 # 25
+PRIMITIVE_MAX = 100 # 50
 
 
 
@@ -145,32 +145,53 @@ def load_obj_vk(scene, obj_name, pose=Pose(), is_kinematic=False):
     return obj
 
 
-def create_realsense_d415(camera_name: str, camera_mount: sapien.ActorBase, scene: sapien.Scene, camera_k, camera_ir_k):
+def create_realsense(camera_type: str, camera_name: str, default_resolution: tuple, camera_resolution: tuple,
+                     camera_mount: sapien.ActorBase, scene: sapien.Scene, camera_k, camera_ir_k):
     scene.update_render()
-    fov = 0.742501437664032
+    if camera_type == 'd415':
+        # color fovy
+        fov = 0.742501437664032
+    elif camera_name == 'd435':
+        fov = 0.742501437664032
+    else:
+        raise NotImplementedError()
     name = camera_name
-    width = 1920
-    height = 1080
+    default_width, default_height = default_resolution
+    width, height = camera_resolution
+    camera_k[:2, :] = camera_k[:2, :] * np.array([[width / default_width], [height / default_height]])
+    camera_ir_k[:2, :] = camera_ir_k[:2, :] * np.array([[width / default_width], [height / default_height]])
 
     tran_pose0 = sapien.Pose([0, 0, 0])
-    if "base" in camera_name:
+    if camera_type == 'd415':
+        if "base" in camera_name:
+            tran_pose1 = sapien.Pose(
+                [-0.0008183810985, -0.0173809196, -0.002242552045],
+                [9.99986449e-01, 5.69235052e-04, 1.23234267e-03, -5.02592655e-03],
+            )
+            tran_pose2 = sapien.Pose(
+                [-0.0008183810985, -0.07214373, -0.002242552045],
+                [9.99986449e-01, 5.69235052e-04, 1.23234267e-03, -5.02592655e-03],
+            )
+        else:
+            tran_pose1 = sapien.Pose(
+                [0.0002371878611, -0.0153303356, -0.002143536015],
+                [0.9999952133080734, 0.0019029481504852343, -0.0003405963365571751, -0.0024158111293426307],
+            )
+            tran_pose2 = sapien.Pose(
+                [0.0002371878611, -0.0702470843, -0.002143536015],
+                [0.9999952133080734, 0.0019029481504852343, -0.0003405963365571751, -0.0024158111293426307],
+            )
+    elif camera_type == 'd435':
         tran_pose1 = sapien.Pose(
-            [-0.0008183810985, -0.0173809196, -0.002242552045],
-            [9.99986449e-01, 5.69235052e-04, 1.23234267e-03, -5.02592655e-03],
+            [-0.000258044, -0.0147611, -0.000184758],
+            [0.999995, -0.000861459, 0.00270606, -0.00121069],
         )
         tran_pose2 = sapien.Pose(
-            [-0.0008183810985, -0.07214373, -0.002242552045],
-            [9.99986449e-01, 5.69235052e-04, 1.23234267e-03, -5.02592655e-03],
+            [-1.21578e-05, -0.064705, -6.35905e-05],
+            [0.999995, -0.000861459, 0.00270606, -0.00121069],
         )
     else:
-        tran_pose1 = sapien.Pose(
-            [0.0002371878611, -0.0153303356, -0.002143536015],
-            [0.9999952133080734, 0.0019029481504852343, -0.0003405963365571751, -0.0024158111293426307],
-        )
-        tran_pose2 = sapien.Pose(
-            [0.0002371878611, -0.0702470843, -0.002143536015],
-            [0.9999952133080734, 0.0019029481504852343, -0.0003405963365571751, -0.0024158111293426307],
-        )
+        raise NotImplementedError()
 
     camera0 = scene.add_mounted_camera(f"{name}", camera_mount, tran_pose0, width, height, 0, fov, 0.001, 100)
     camera0.set_perspective_parameters(
@@ -297,7 +318,7 @@ def get_random_pose(h=0.02):
     # random_z = np.random.uniform(0, 0.1, 1)[0]
     random_x = np.random.uniform(-0.15, 1.0, 1)[0]
     random_y = np.random.uniform(-0.35, 0.35, 1)[0]
-    random_z = np.random.uniform(0, 0.05, 1)[0]
+    random_z = np.random.uniform(0, 0.25, 1)[0]
     R = rand_rotation_matrix()
     T = np.hstack((R, np.array([[random_x], [random_y], [random_z]])))
     T = np.vstack((T, np.array([0, 0, 0, 1])))
@@ -422,21 +443,21 @@ def load_random_primitives_v2(scene, renderer, idx):
     #
     # Build
     if type == "sphere":
-        r = 0.02 + np.random.rand() * 0.05
+        r = 0.005 + np.random.rand() * 0.06
         l = 0
         builder.add_sphere_visual(radius=r, material=material)
         builder.add_sphere_collision(radius=r)
         s = builder.build_kinematic(name=str(idx))
         s.set_pose(get_random_pose())
     elif type == "capsule":
-        r = 0.02 + np.random.rand() * 0.05
-        l = 0.02 + np.random.rand() * 0.05
+        r = 0.005 + np.random.rand() * 0.06
+        l = 0.005 + np.random.rand() * 0.06
         builder.add_capsule_visual(radius=r, half_length=l, material=material)
         builder.add_capsule_collision(radius=r, half_length=l)
         s = builder.build_kinematic(name=str(idx))
         s.set_pose(get_random_pose())
     elif type == "box":
-        r = 0.02 + np.random.rand() * 0.05
+        r = 0.005 + np.random.rand() * 0.06
         l = 0
         builder.add_box_visual(half_size=[r, r, r], material=material)
         builder.add_box_collision(half_size=[r, r, r])

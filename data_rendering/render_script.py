@@ -1,3 +1,6 @@
+"""
+python data_rendering/render_script.py --sub 1 --total 200 --target-root ./dataset_sim --primitives-v2 --rand-pattern --rand-lighting
+"""
 import os
 import os.path as osp
 import sys
@@ -22,6 +25,8 @@ if __name__ == "__main__":
     parser.add_argument("--sub", type=int, required=True)
     parser.add_argument("--total", type=int, required=True)
     parser.add_argument("--target-root", type=str, required=True)
+    parser.add_argument("--camera-type", type=str, default="d435", choices=["d435", "d415"])
+    parser.add_argument("--camera-resolution", nargs=2, type=int, default=[848, 480])
     parser.add_argument("--rand-pattern", action="store_true")
     parser.add_argument("--fixed-angle", action="store_true")
     parser.add_argument("--rand-lighting", action="store_true")
@@ -30,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--rand-table", action="store_true", help="use random material for table")
     parser.add_argument("--rand-env", action="store_true", help="use random environment map")
     args = parser.parse_args()
+    args.camera_resolution = tuple(args.camera_resolution)
 
     spp = 128
     num_view = 21
@@ -141,6 +147,8 @@ if __name__ == "__main__":
             scene_id=sc,
             repo_root=repo_root,
             target_root=data_root,
+            camera_type=args.camera_type,
+            camera_resolution=args.camera_resolution,
             spp=spp,
             num_views=num_view,
             rand_pattern=args.rand_pattern,
@@ -173,6 +181,8 @@ if __name__ == "__main__":
             scene_id=sc,
             repo_root=repo_root,
             target_root=data_root,
+            camera_type=args.camera_type,
+            camera_resolution=args.camera_resolution,
             spp=spp,
             num_views=num_view,
             rand_pattern=args.rand_pattern,

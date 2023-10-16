@@ -16,6 +16,8 @@ def render_scene(
     scene_id,
     repo_root,
     target_root,
+    camera_type,
+    camera_resolution,
     spp,
     num_views,
     rand_pattern,
@@ -53,33 +55,55 @@ def render_scene(
         load_table(scene, os.path.join(repo_root, "data_rendering/materials/optical_table"), renderer, table_pose)
 
     # Add camera
-    cam_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_base.txt"))
-    cam_ir_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_base.txt"))
-    cam_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_hand.txt"))
-    cam_ir_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_hand.txt"))
-    cam_irL_rel_extrinsic_base = np.loadtxt(
-        os.path.join(materials_root, "cam_irL_rel_extrinsic_base.txt")
-    )  # camL -> cam0
-    cam_irR_rel_extrinsic_base = np.loadtxt(
-        os.path.join(materials_root, "cam_irR_rel_extrinsic_base.txt")
-    )  # camR -> cam0
-    cam_irL_rel_extrinsic_hand = np.loadtxt(
-        os.path.join(materials_root, "cam_irL_rel_extrinsic_hand.txt")
-    )  # camL -> cam0
-    cam_irR_rel_extrinsic_hand = np.loadtxt(
-        os.path.join(materials_root, "cam_irR_rel_extrinsic_hand.txt")
-    )  # camR -> cam0
+    if camera_type == 'd415':
+        default_resolution = (1920, 1080)
+        cam_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_base.txt")) # intrinsic under default resolution
+        cam_ir_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_base.txt"))
+        cam_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_hand.txt"))
+        cam_ir_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_hand.txt"))
+        cam_irL_rel_extrinsic_base = np.loadtxt(
+            os.path.join(materials_root, "cam_irL_rel_extrinsic_base.txt")
+        )  # camL -> cam0
+        cam_irR_rel_extrinsic_base = np.loadtxt(
+            os.path.join(materials_root, "cam_irR_rel_extrinsic_base.txt")
+        )  # camR -> cam0
+        cam_irL_rel_extrinsic_hand = np.loadtxt(
+            os.path.join(materials_root, "cam_irL_rel_extrinsic_hand.txt")
+        )  # camL -> cam0
+        cam_irR_rel_extrinsic_hand = np.loadtxt(
+            os.path.join(materials_root, "cam_irR_rel_extrinsic_hand.txt")
+        )  # camR -> cam0
+    elif camera_type == 'd435':
+        default_resolution = (640, 360)
+        cam_intrinsic_base = np.array([[458.514, 0, 316.521], [0, 458.728, 184.421], [0, 0, 1]]) # intrinsic under default resolution
+        cam_ir_intrinsic_base = np.array(cam_intrinsic_base)
+        cam_intrinsic_hand = np.array(cam_intrinsic_base)
+        cam_ir_intrinsic_hand = np.array(cam_intrinsic_base)
+        cam_irL_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -2.5804399e-04],
+                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -1.4761100e-02],
+                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -1.8475000e-04],
+                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
+        cam_irR_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -1.2157800e-05],
+                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -6.4704999e-02],
+                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -6.3590502e-05],
+                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
+        cam_irL_rel_extrinsic_hand = np.array(cam_irL_rel_extrinsic_base)
+        cam_irR_rel_extrinsic_hand = np.array(cam_irR_rel_extrinsic_base)
+    else:
+        raise NotImplementedError()
 
     builder = scene.create_actor_builder()
     cam_mount = builder.build_kinematic(name="real_camera")
     if fixed_angle:
         # reproduce IJRR
-        base_cam_rgb, base_cam_irl, base_cam_irr = create_realsense_d415(
-            "real_camera_base", cam_mount, scene, cam_intrinsic_base, cam_ir_intrinsic_base
+        base_cam_rgb, base_cam_irl, base_cam_irr = create_realsense(
+            camera_type, "real_camera_base", default_resolution, camera_resolution,
+            cam_mount, scene, cam_intrinsic_base, cam_ir_intrinsic_base
         )
 
-    hand_cam_rgb, hand_cam_irl, hand_cam_irr = create_realsense_d415(
-        "real_camera_hand", cam_mount, scene, cam_intrinsic_hand, cam_ir_intrinsic_hand
+    hand_cam_rgb, hand_cam_irl, hand_cam_irr = create_realsense(
+        camera_type, "real_camera_hand", default_resolution, camera_resolution,
+        cam_mount, scene, cam_intrinsic_hand, cam_ir_intrinsic_hand
     )
 
     # Add lights
@@ -197,7 +221,7 @@ def render_scene(
 
     mount_T = t3d.quaternions.quat2mat((-0.5, 0.5, 0.5, -0.5))
     fov = np.random.uniform(1.3, 2.0)
-    tex = cv2.imread(os.path.join(materials_root, "d415-pattern-sq.png"))
+    tex = cv2.imread(os.path.join(materials_root, f"{camera_type}-pattern-sq.png"))
 
     def rotate_image(image, angle):
         image_center = tuple(np.array(image.shape[1::-1]) / 2)
@@ -209,14 +233,14 @@ def render_scene(
     if rand_pattern:
         angle = np.random.uniform(-90, 90)
         tex_tmp = rotate_image(tex, angle)
-        cv2.imwrite(os.path.join(materials_root, f"d415-pattern-sq-tmp-{tmp_idx:08d}.png"), tex_tmp)
+        cv2.imwrite(os.path.join(materials_root, f"{camera_type}-pattern-sq-tmp-{tmp_idx:08d}.png"), tex_tmp)
 
         alight = scene.add_active_light(
             pose=Pose([0.4, 0, 0.8]),
             # pose=Pose(cam_mount.get_pose().p, apos),
             color=[0, 0, 0],
             fov=fov,
-            tex_path=os.path.join(materials_root, f"d415-pattern-sq-tmp-{tmp_idx:08d}.png"),
+            tex_path=os.path.join(materials_root, f"{camera_type}-pattern-sq-tmp-{tmp_idx:08d}.png"),
         )
     else:
         alight = scene.add_active_light(
@@ -224,7 +248,7 @@ def render_scene(
             # pose=Pose(cam_mount.get_pose().p, apos),
             color=[0, 0, 0],
             fov=fov,
-            tex_path=os.path.join(materials_root, "d415-pattern-sq.png"),
+            tex_path=os.path.join(materials_root, f"{camera_type}-pattern-sq.png"),
         )
 
     cam_extrinsic_list = np.load(os.path.join(materials_root, "cam_db_neoneo.npy"))
@@ -232,15 +256,18 @@ def render_scene(
         assert num_views <= cam_extrinsic_list.shape[0]
     else:
         # Obtain random camera poses around a specific center location
+        # TODO: adjust these
         obj_center = np.array([0.425, 0, 0])
         alpha_range = [0, 2 * np.pi]
-        theta_range = [0.01, np.pi * 3 / 8]
-        radius_range = [0.8, 1.2]
+        # theta_range = [0.01, np.pi * 3 / 8]
+        # radius_range = [0.8, 1.2]
+        theta_range = [0.01, np.pi * 7 / 16]
+        radius_range = [0.1, 1.2]
         angle_list = [
             (alpha, theta, radius)
             for alpha in np.linspace(alpha_range[0], alpha_range[1], 50)
-            for theta in np.linspace(theta_range[0], theta_range[1], 10)
-            for radius in np.linspace(radius_range[0], radius_range[1], 10)
+            for theta in np.linspace(theta_range[0], theta_range[1], 20) # 10)
+            for radius in np.linspace(radius_range[0], radius_range[1], 40) # 10)
         ]
         angle_choices = random.choices(angle_list, k=num_views)
 
@@ -421,7 +448,7 @@ def render_scene(
 
         logger.info(f"finish {folder_path} rendering")
     if rand_pattern:
-        os.remove(os.path.join(materials_root, f"d415-pattern-sq-tmp-{tmp_idx:08d}.png"))
+        os.remove(os.path.join(materials_root, f"{camera_type}-pattern-sq-tmp-{tmp_idx:08d}.png"))
     scene = None
 
 
@@ -431,6 +458,8 @@ def render_gt_depth_label(
     scene_id,
     repo_root,
     target_root,
+    camera_type,
+    camera_resolution,
     spp,
     num_views,
     rand_pattern,
