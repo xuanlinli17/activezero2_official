@@ -262,14 +262,13 @@ def render_scene(
         # theta_range = [0.01, np.pi * 3 / 8]
         # radius_range = [0.8, 1.2]
         theta_range = [0.01, np.pi * 7 / 16]
-        radius_range = [0.1, 1.2]
+        radius_range = [0.1, 1.4]
         angle_list = [
             (alpha, theta, radius)
             for alpha in np.linspace(alpha_range[0], alpha_range[1], 50)
             for theta in np.linspace(theta_range[0], theta_range[1], 20) # 10)
             for radius in np.linspace(radius_range[0], radius_range[1], 40) # 10)
         ]
-        angle_choices = random.choices(angle_list, k=num_views)
 
     # set scene layout
     if primitives:
@@ -280,6 +279,7 @@ def render_scene(
             primitive_info.update(info)
     elif primitives_v2:
         num_asset = random.randint(PRIMITIVE_MIN, PRIMITIVE_MAX)
+        # num_asset = int(np.exp(np.random.uniform(np.log(PRIMITIVE_MIN), np.log(PRIMITIVE_MAX))))
         primitive_info = {}
         for i in range(num_asset):
             info = load_random_primitives_v2(scene, renderer=renderer, idx=i)
@@ -337,8 +337,14 @@ def render_scene(
 
         else:
             # Obtain random camera extrinsic
-            alpha, theta, radius = angle_choices[view_id]
-            cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
+            while True:
+                alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
+                cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
+                if primitives or primitives_v2:
+                    if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.005):
+                        break
+                else:
+                    break
             cam_mount.set_pose(sapien.Pose.from_transformation_matrix(cam_extrinsic))
 
             apos = cam_mount.get_pose().to_transformation_matrix()[:3, :3] @ mount_T
@@ -387,8 +393,9 @@ def render_scene(
             p_r = cv2.cvtColor(p_r, cv2.COLOR_RGB2GRAY)
             p_l = cv2.GaussianBlur(p_l, (3, 3), 1)
             p_r = cv2.GaussianBlur(p_r, (3, 3), 1)
-            irl = p_l[::2, ::2]
-            irr = p_r[::2, ::2]
+            # irl = p_l[::2, ::2] # historical reason
+            # irr = p_r[::2, ::2]
+            irl, irr = p_l, p_r
             cv2.imwrite(os.path.join(folder_path, f"{spp:04d}_irL_kuafu_half.png"), irl)
             cv2.imwrite(os.path.join(folder_path, f"{spp:04d}_irR_kuafu_half.png"), irr)
 
@@ -406,8 +413,9 @@ def render_scene(
             p_r = cv2.cvtColor(p_r, cv2.COLOR_RGB2GRAY)
             p_l = cv2.GaussianBlur(p_l, (3, 3), 1)
             p_r = cv2.GaussianBlur(p_r, (3, 3), 1)
-            no_irl = p_l[::2, ::2]
-            no_irr = p_r[::2, ::2]
+            # no_irl = p_l[::2, ::2] # historical reason
+            # no_irr = p_r[::2, ::2]
+            no_irl, no_irr = p_l, p_r
             cv2.imwrite(os.path.join(folder_path, f"{spp:04d}_irL_kuafu_half_no_ir.png"), no_irl)
             cv2.imwrite(os.path.join(folder_path, f"{spp:04d}_irR_kuafu_half_no_ir.png"), no_irr)
         else:

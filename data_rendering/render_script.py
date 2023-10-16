@@ -27,6 +27,8 @@ if __name__ == "__main__":
     parser.add_argument("--target-root", type=str, required=True)
     parser.add_argument("--camera-type", type=str, default="d435", choices=["d435", "d415"])
     parser.add_argument("--camera-resolution", nargs=2, type=int, default=[848, 480])
+    parser.add_argument("--num-scene", type=int, default=2000)
+    parser.add_argument("--num-view", type=int, default=21)
     parser.add_argument("--rand-pattern", action="store_true")
     parser.add_argument("--fixed-angle", action="store_true")
     parser.add_argument("--rand-lighting", action="store_true")
@@ -38,7 +40,7 @@ if __name__ == "__main__":
     args.camera_resolution = tuple(args.camera_resolution)
 
     spp = 128
-    num_view = 21
+    num_view = args.num_view
 
     repo_root = REPO_ROOT
     target_root = args.target_root
@@ -66,7 +68,7 @@ if __name__ == "__main__":
     logger.info(f"Args: {args}")
 
     if args.primitives or args.primitives_v2:
-        total_scene = 2000
+        total_scene = args.num_scene # 2000
         scene_names = np.arange(total_scene)
         sub_total_scene = len(scene_names) // args.total
         sub_scene_list = (
@@ -75,7 +77,7 @@ if __name__ == "__main__":
             else scene_names[(args.sub - 1) * sub_total_scene :]
         )
     else:
-        total_scene = 1000
+        total_scene = args.num_scene # 1000
         scene_names = np.arange(total_scene)
         sub_total_scene = len(scene_names) // args.total
         sub_scene_list = []

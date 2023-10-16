@@ -28,8 +28,8 @@ SPECULAR_MAX = 0.8
 TRANSMISSION_MIN = 0.0
 TRANSMISSION_MAX = 1.0
 
-PRIMITIVE_MIN = 10 # 25
-PRIMITIVE_MAX = 100 # 50
+PRIMITIVE_MIN = 5 # 25
+PRIMITIVE_MAX = 150 # 100 # 50
 
 
 
@@ -151,7 +151,7 @@ def create_realsense(camera_type: str, camera_name: str, default_resolution: tup
     if camera_type == 'd415':
         # color fovy
         fov = 0.742501437664032
-    elif camera_name == 'd435':
+    elif camera_type == 'd435':
         fov = 0.742501437664032
     else:
         raise NotImplementedError()
@@ -318,7 +318,7 @@ def get_random_pose(h=0.02):
     # random_z = np.random.uniform(0, 0.1, 1)[0]
     random_x = np.random.uniform(-0.15, 1.0, 1)[0]
     random_y = np.random.uniform(-0.35, 0.35, 1)[0]
-    random_z = np.random.uniform(0, 0.25, 1)[0]
+    random_z = np.random.uniform(0, 0.75, 1)[0]
     R = rand_rotation_matrix()
     T = np.hstack((R, np.array([[random_x], [random_y], [random_z]])))
     T = np.vstack((T, np.array([0, 0, 0, 1])))
@@ -443,21 +443,21 @@ def load_random_primitives_v2(scene, renderer, idx):
     #
     # Build
     if type == "sphere":
-        r = 0.005 + np.random.rand() * 0.06
+        r = np.exp(np.random.uniform(np.log(0.004), np.log(0.10)))
         l = 0
         builder.add_sphere_visual(radius=r, material=material)
         builder.add_sphere_collision(radius=r)
         s = builder.build_kinematic(name=str(idx))
         s.set_pose(get_random_pose())
     elif type == "capsule":
-        r = 0.005 + np.random.rand() * 0.06
-        l = 0.005 + np.random.rand() * 0.06
+        r = np.exp(np.random.uniform(np.log(0.004), np.log(0.10)))
+        l = np.exp(np.random.uniform(np.log(0.004), np.log(0.20)))
         builder.add_capsule_visual(radius=r, half_length=l, material=material)
         builder.add_capsule_collision(radius=r, half_length=l)
         s = builder.build_kinematic(name=str(idx))
         s.set_pose(get_random_pose())
     elif type == "box":
-        r = 0.005 + np.random.rand() * 0.06
+        r = np.exp(np.random.uniform(np.log(0.004), np.log(0.10)))
         l = 0
         builder.add_box_visual(half_size=[r, r, r], material=material)
         builder.add_box_collision(half_size=[r, r, r])
@@ -481,6 +481,34 @@ def load_random_primitives_v2(scene, renderer, idx):
     }
 
     return primitive_info
+
+
+def check_camera_collision_with_primitive_dict(pos, primitive_info, eps=0.005):
+    # check whether the camera collides with any of the primitive shapes
+    cam_pose = np.eye(4)
+    cam_pose[:3, 3] = pos
+    for k, v in primitive_info.items():
+        r, l = v['size']['r'], v['size']['l']
+        if v['type'] == 'sphere':
+            d = np.linalg.norm(pos - v['pose'][:3, 3])
+            if d < r + eps:
+                return True
+        elif v['type'] == 'capsule':
+            rel_pose = np.linalg.inv(v['pose']) * cam_pose
+            rel_pos = rel_pose[:3, 3]
+            coll_cyl = np.linalg.norm(rel_pos[:2]) < r + eps
+            coll_cyl = coll_cyl and (abs(rel_pos[-1]) < l + eps)
+            coll_sph = np.linalg.norm(rel_pos - np.array([0, 0, l])) < r + eps
+            coll_sph = coll_sph or (np.linalg.norm(rel_pos - np.array([0, 0, -l])) < r + eps)
+            if coll_cyl or coll_sph:
+                return True
+        elif v['type'] == 'box':
+            rel_pose = np.linalg.inv(v['pose']) * cam_pose
+            rel_pos = rel_pose[:3, 3]
+            rel_pos_abs = np.abs(rel_pos)
+            if np.all(rel_pos_abs < r + eps):
+                return True
+    return False
 
 
 def load_pickle(filename):
