@@ -219,8 +219,19 @@ def render_scene(
             plight5.set_color([0.1 * p_scale, 0.03 * p_scale, 0.03 * p_scale])
             alight.set_color([0.0, 0.0, 0.0])
 
-    mount_T = t3d.quaternions.quat2mat((-0.5, 0.5, 0.5, -0.5))
-    
+    mount_T = t3d.quaternions.quat2mat((-0.5, 0.5, 0.5, -0.5)) # TODO: remove this in sapien3, since in sapien2 the active light convention is broken and that's why we used this weird mount_T matrix
+    if camera_type == 'd415':
+        pose_rgb_irproj = sapien.Pose()
+    elif camera_type == 'd435':
+        pose_rgb_irproj = sapien.Pose.from_transformation_matrix(np.array(
+            [[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, 0],
+            [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.015-0.029],
+            [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, 0],
+            [0.0, 0.0, 0.0, 1.0]]
+        ))
+    else:
+        raise NotImplementedError()
+
     if camera_type == 'd415':
         fov = np.random.uniform(1.3, 2.0)
     elif camera_type == 'd435':
@@ -248,7 +259,7 @@ def render_scene(
         cv2.imwrite(os.path.join(materials_root, f"{camera_type}-pattern-sq-tmp-{tmp_idx:08d}.png"), tex_tmp)
 
         alight = scene.add_active_light(
-            pose=Pose([0.4, 0, 0.8]),
+            pose=Pose([0.4, 0, 0.8]), # dummy pose, will be overwritten later
             # pose=Pose(cam_mount.get_pose().p, apos),
             color=[0, 0, 0],
             fov=fov,
@@ -256,7 +267,7 @@ def render_scene(
         )
     else:
         alight = scene.add_active_light(
-            pose=Pose([0.4, 0, 0.8]),
+            pose=Pose([0.4, 0, 0.8]), # dummy pose, will be overwritten later
             # pose=Pose(cam_mount.get_pose().p, apos),
             color=[0, 0, 0],
             fov=fov,
@@ -343,9 +354,10 @@ def render_scene(
         os.makedirs(folder_path, exist_ok=True)
         if fixed_angle:
             cam_mount.set_pose(cv2ex2pose(cam_extrinsic_list[view_id]))
-            apos = cam_mount.get_pose().to_transformation_matrix()[:3, :3] @ mount_T
+            ir_projector_pose = cam_mount.get_pose() * pose_rgb_irproj
+            apos = ir_projector_pose.to_transformation_matrix()[:3, :3] @ mount_T
             apos = t3d.quaternions.mat2quat(apos)
-            alight.set_pose(Pose(cam_mount.get_pose().p, apos))
+            alight.set_pose(Pose(ir_projector_pose.p, apos))
 
         else:
             # Obtain random camera extrinsic
@@ -359,9 +371,10 @@ def render_scene(
                     break
             cam_mount.set_pose(sapien.Pose.from_transformation_matrix(cam_extrinsic))
 
-            apos = cam_mount.get_pose().to_transformation_matrix()[:3, :3] @ mount_T
+            ir_projector_pose = cam_mount.get_pose() * pose_rgb_irproj
+            apos = ir_projector_pose.to_transformation_matrix()[:3, :3] @ mount_T
             apos = t3d.quaternions.mat2quat(apos)
-            alight.set_pose(Pose(cam_mount.get_pose().p, apos))
+            alight.set_pose(Pose(ir_projector_pose.p, apos))
         if view_id == 0 and fixed_angle:
             # reproduce IJRR
             cam_rgb = base_cam_rgb
