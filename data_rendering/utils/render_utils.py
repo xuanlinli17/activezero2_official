@@ -117,10 +117,14 @@ def load_rand_table(scene, table_dir, renderer, pose=Pose()):
     material.specular = random.uniform(SPECULAR_MIN, SPECULAR_MAX)
     material.ior = 1 + random.random()
     prob = random.random()
+    """
     if prob < 0.2:
-        material.set_transmission_texture_from_file(get_random_bin_texture())
+        material.set_transmission_texture_from_file(get_random_bin_texture()) # miniimagenet texture can be noisy
     elif prob < 0.7:
         material.set_diffuse_texture_from_file(get_random_texture())
+    """
+    if prob < 0.36:
+        material.set_transmission_texture_from_file(get_random_bin_texture())
     builder.add_visual_from_file(os.path.join(table_dir, "optical_table.obj"), material=material)
     table = builder.build_kinematic(name="table_kuafu")
     table.set_pose(pose)
