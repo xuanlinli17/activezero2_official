@@ -493,33 +493,55 @@ def render_gt_depth_label(
     scene.set_timestep(1 / 240)
 
     # Add camera
-    cam_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_base.txt"))
-    cam_ir_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_base.txt"))
-    cam_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_hand.txt"))
-    cam_ir_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_hand.txt"))
-    cam_irL_rel_extrinsic_base = np.loadtxt(
-        os.path.join(materials_root, "cam_irL_rel_extrinsic_base.txt")
-    )  # camL -> cam0
-    cam_irR_rel_extrinsic_base = np.loadtxt(
-        os.path.join(materials_root, "cam_irR_rel_extrinsic_base.txt")
-    )  # camR -> cam0
-    cam_irL_rel_extrinsic_hand = np.loadtxt(
-        os.path.join(materials_root, "cam_irL_rel_extrinsic_hand.txt")
-    )  # camL -> cam0
-    cam_irR_rel_extrinsic_hand = np.loadtxt(
-        os.path.join(materials_root, "cam_irR_rel_extrinsic_hand.txt")
-    )  # camR -> cam0
+    if camera_type == 'd415':
+        default_resolution = (1920, 1080)
+        cam_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_base.txt")) # intrinsic under default resolution
+        cam_ir_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_base.txt"))
+        cam_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_hand.txt"))
+        cam_ir_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_hand.txt"))
+        cam_irL_rel_extrinsic_base = np.loadtxt(
+            os.path.join(materials_root, "cam_irL_rel_extrinsic_base.txt")
+        )  # camL -> cam0
+        cam_irR_rel_extrinsic_base = np.loadtxt(
+            os.path.join(materials_root, "cam_irR_rel_extrinsic_base.txt")
+        )  # camR -> cam0
+        cam_irL_rel_extrinsic_hand = np.loadtxt(
+            os.path.join(materials_root, "cam_irL_rel_extrinsic_hand.txt")
+        )  # camL -> cam0
+        cam_irR_rel_extrinsic_hand = np.loadtxt(
+            os.path.join(materials_root, "cam_irR_rel_extrinsic_hand.txt")
+        )  # camR -> cam0
+    elif camera_type == 'd435':
+        default_resolution = (640, 360)
+        cam_intrinsic_base = np.array([[458.514, 0, 316.521], [0, 458.728, 184.421], [0, 0, 1]]) # intrinsic under default resolution
+        cam_ir_intrinsic_base = np.array(cam_intrinsic_base)
+        cam_intrinsic_hand = np.array(cam_intrinsic_base)
+        cam_ir_intrinsic_hand = np.array(cam_intrinsic_base)
+        cam_irL_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -2.5804399e-04],
+                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -1.4761100e-02],
+                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -1.8475000e-04],
+                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
+        cam_irR_rel_extrinsic_base = np.array([[ 9.9998242e-01,  2.4167064e-03,  5.4141814e-03, -1.2157800e-05],
+                                                [-2.4260313e-03,  9.9999559e-01,  1.7163578e-03, -6.4704999e-02],
+                                                [-5.4100100e-03, -1.7294626e-03,  9.9998385e-01, -6.3590502e-05],
+                                                [ 0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00]])
+        cam_irL_rel_extrinsic_hand = np.array(cam_irL_rel_extrinsic_base)
+        cam_irR_rel_extrinsic_hand = np.array(cam_irR_rel_extrinsic_base)
+    else:
+        raise NotImplementedError()
 
     builder = scene.create_actor_builder()
     cam_mount = builder.build_kinematic(name="real_camera")
     if fixed_angle:
         # reproduce IJRR
-        base_cam_rgb, base_cam_irl, base_cam_irr = create_realsense_d415(
-            "real_camera_base", cam_mount, scene, cam_intrinsic_base, cam_ir_intrinsic_base
+        base_cam_rgb, base_cam_irl, base_cam_irr = create_realsense(
+            camera_type, "real_camera_base", default_resolution, camera_resolution,
+            cam_mount, scene, cam_intrinsic_base, cam_ir_intrinsic_base
         )
 
-    hand_cam_rgb, hand_cam_irl, hand_cam_irr = create_realsense_d415(
-        "real_camera_hand", cam_mount, scene, cam_intrinsic_hand, cam_ir_intrinsic_hand
+    hand_cam_rgb, hand_cam_irl, hand_cam_irr = create_realsense(
+        camera_type, "real_camera_hand", default_resolution, camera_resolution,
+        cam_mount, scene, cam_intrinsic_hand, cam_ir_intrinsic_hand
     )
 
     table_pose_np = np.loadtxt(os.path.join(repo_root, "data_rendering/materials/optical_table/pose.txt"))
