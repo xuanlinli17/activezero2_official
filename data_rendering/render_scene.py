@@ -278,8 +278,8 @@ def render_scene(
             info = load_random_primitives(scene, renderer=renderer, idx=i)
             primitive_info.update(info)
     elif primitives_v2:
-        num_asset = random.randint(PRIMITIVE_MIN, PRIMITIVE_MAX)
-        # num_asset = int(np.exp(np.random.uniform(np.log(PRIMITIVE_MIN), np.log(PRIMITIVE_MAX))))
+        # num_asset = random.randint(PRIMITIVE_MIN, PRIMITIVE_MAX)
+        num_asset = int(np.exp(np.random.uniform(np.log(PRIMITIVE_MIN), np.log(PRIMITIVE_MAX))))
         primitive_info = {}
         for i in range(num_asset):
             info = load_random_primitives_v2(scene, renderer=renderer, idx=i)
