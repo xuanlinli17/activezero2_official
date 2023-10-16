@@ -107,6 +107,7 @@ def render_scene(
     )
 
     # Add lights
+    """
     if rand_env:
         ambient_light = np.random.rand(3)
         scene.set_ambient_light(ambient_light)
@@ -130,8 +131,11 @@ def render_scene(
 
         def light_off_without_alight():
             alight.set_color([0.0, 0.0, 0.0])
+    """
+    if rand_env:
+        scene.set_environment_map(get_random_env_file())
 
-    elif rand_lighting:
+    if rand_lighting:
         ambient_light = np.random.rand(3)
         scene.set_ambient_light(ambient_light)
         height = np.random.rand() + 2
@@ -219,7 +223,8 @@ def render_scene(
             plight5.set_color([0.1 * p_scale, 0.03 * p_scale, 0.03 * p_scale])
             alight.set_color([0.0, 0.0, 0.0])
 
-    mount_T = t3d.quaternions.quat2mat((-0.5, 0.5, 0.5, -0.5)) # TODO: remove this in sapien3, since in sapien2 the active light convention is broken and that's why we used this weird mount_T matrix
+    mount_T = np.eye(3)
+    # mount_T = t3d.quaternions.quat2mat((-0.5, 0.5, 0.5, -0.5)) # TODO: remove this in sapien3, since in sapien2 the active light convention is broken and that's why we used this weird mount_T matrix
     if camera_type == 'd415':
         pose_rgb_irproj = sapien.Pose()
     elif camera_type == 'd435':
