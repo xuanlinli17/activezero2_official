@@ -220,7 +220,14 @@ def render_scene(
             alight.set_color([0.0, 0.0, 0.0])
 
     mount_T = t3d.quaternions.quat2mat((-0.5, 0.5, 0.5, -0.5))
-    fov = np.random.uniform(1.3, 2.0)
+    
+    if camera_type == 'd415':
+        fov = np.random.uniform(1.3, 2.0)
+    elif camera_type == 'd435':
+        fov = np.random.uniform(1.6755, 2.0943) # 99 - 120 degs
+    else:
+        raise NotImplementedError()
+    
     tex = cv2.imread(os.path.join(materials_root, f"{camera_type}-pattern-sq.png"))
 
     def rotate_image(image, angle):
@@ -231,7 +238,12 @@ def render_scene(
 
     tmp_idx = np.random.randint(1e8)
     if rand_pattern:
-        angle = np.random.uniform(-90, 90)
+        if camera_type == 'd415':
+            angle = np.random.uniform(-90, 90)
+        elif camera_type == 'd435':
+            angle = np.random.uniform(-5, 5)
+        else:
+            raise NotImplementedError()
         tex_tmp = rotate_image(tex, angle)
         cv2.imwrite(os.path.join(materials_root, f"{camera_type}-pattern-sq-tmp-{tmp_idx:08d}.png"), tex_tmp)
 
