@@ -261,7 +261,7 @@ def render_scene(
         alight = scene.add_active_light(
             pose=Pose([0.4, 0, 0.8]), # dummy pose, will be overwritten later
             # pose=Pose(cam_mount.get_pose().p, apos),
-            color=[0, 0, 0],
+            color=[0, 0, 0], # dummy color, will be overwritten later
             fov=fov,
             tex_path=os.path.join(materials_root, f"{camera_type}-pattern-sq-tmp-{tmp_idx:08d}.png"),
         )
@@ -269,7 +269,7 @@ def render_scene(
         alight = scene.add_active_light(
             pose=Pose([0.4, 0, 0.8]), # dummy pose, will be overwritten later
             # pose=Pose(cam_mount.get_pose().p, apos),
-            color=[0, 0, 0],
+            color=[0, 0, 0], # dummy color, will be overwritten later
             fov=fov,
             tex_path=os.path.join(materials_root, f"{camera_type}-pattern-sq.png"),
         )
