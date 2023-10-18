@@ -1,5 +1,6 @@
 import os
 import random
+import math
 
 import cv2
 import numpy as np
@@ -43,6 +44,7 @@ class MessyTableDataset(Dataset):
         left_off_name="",
         right_off_name="",
         edge_sigma_range=(0.0, 2.0),
+        img_preprocess_resize=(960, 540),
     ):
         self.mode = mode
 
@@ -78,9 +80,11 @@ class MessyTableDataset(Dataset):
             self._init_grid()
 
         self.disp_grad = DispGrad()
+        
+        self.img_preprocess_resize = img_preprocess_resize
 
         logger.info(
-            f"MessyTableDataset: mode: {mode}, domain: {domain}, root_dir: {root_dir}, length: {len(self.img_dirs)},"
+            f"MessyTableDataset: mode: {mode}, domain: {domain}, root_dir: {root_dir}, length: {len(self.img_dirs)}, downsample_factor: {self.img_downsample_factor}"
             f" left_name: {left_name}, right_name: {right_name},"
             f" left_pattern_name: {left_pattern_name}, right_pattern_name: {right_pattern_name}"
         )
@@ -103,56 +107,45 @@ class MessyTableDataset(Dataset):
 
         return img_dirs
 
+    def resize_img(self, img_l, img_r):
+        if self.img_preprocess_resize is not None:
+            assert isinstance(self.img_preprocess_resize, tuple)
+            img_l = cv2.resize(img_l, self.img_preprocess_resize, interpolation=cv2.INTER_CUBIC)
+            img_r = cv2.resize(img_r, self.img_preprocess_resize, interpolation=cv2.INTER_CUBIC)
+            
+        return img_l, img_r
+    
     def __getitem__(self, index):
         data_dict = {}
         img_dir = self.img_dirs[index]
 
         img_l = np.array(Image.open(img_dir / self.left_name).convert(mode="L")) / 255  # [H, W]
         img_r = np.array(Image.open(img_dir / self.right_name).convert(mode="L")) / 255
-
-        origin_h, origin_w = img_l.shape[:2]  # # depend on size of your input image, but we hope that is (960, 540)
         origin_h_old, origin_w_old = img_l.shape[:2]  # depend on size of your input image
-        if origin_h in (720, 1080):
-            img_l = cv2.resize(img_l, (960, 540), interpolation=cv2.INTER_CUBIC)
-            img_r = cv2.resize(img_r, (960, 540), interpolation=cv2.INTER_CUBIC)
-
-        origin_h, origin_w = img_l.shape[:2]  # (960, 540)
-
-        assert (
-            origin_h == 540 and origin_w == 960
-        ), f"Only support H=540, W=960. Current input: H={origin_h}, W={origin_w}"
+        img_l, img_r = self.resize_img(img_l, img_r)
+        origin_h, origin_w = img_l.shape[:2]
 
         if self.left_pattern_name and self.right_pattern_name:
             img_pattern_l = np.array(Image.open(img_dir / self.left_pattern_name).convert(mode="L")) / 255  # [H, W]
             img_pattern_r = np.array(Image.open(img_dir / self.right_pattern_name).convert(mode="L")) / 255
-            patter_h, pattern_w = img_pattern_l.shape[:2]
-            if patter_h in (720, 1080):
-                img_pattern_l = cv2.resize(img_pattern_l, (960, 540), interpolation=cv2.INTER_CUBIC)
-                img_pattern_r = cv2.resize(img_pattern_r, (960, 540), interpolation=cv2.INTER_CUBIC)
-            patter_h, pattern_w = img_pattern_l.shape[:2]
-            assert (
-                patter_h == 540 and pattern_w == 960
-            ), f"img_pattern_l should be processed to H=540, W=960. {img_dir / self.left_pattern_name}"
+            img_pattern_l, img_pattern_r = self.resize_img(img_pattern_l, img_pattern_r)
+            pattern_h, pattern_w = img_pattern_l.shape[:2]
 
         if self.left_off_name and self.right_off_name:
             img_off_l = np.array(Image.open(img_dir / self.left_off_name).convert(mode="L")) / 255  # [H, W]
             img_off_r = np.array(Image.open(img_dir / self.right_off_name).convert(mode="L")) / 255  # [H, W]
+            img_off_l, img_off_r = self.resize_img(img_off_l, img_off_r)
             off_h, off_w = img_off_l.shape[:2]
-            if off_h in (720, 1080):
-                img_off_l = cv2.resize(img_off_l, (960, 540), interpolation=cv2.INTER_CUBIC)
-                img_off_r = cv2.resize(img_off_r, (960, 540), interpolation=cv2.INTER_CUBIC)
-
-            off_h, off_w = img_off_l.shape[:2]  # (960, 540)
-            assert off_h == 540 and off_w == 960, f"Only support H=540, W=960. Current input: H={off_h}, W={off_w}"
 
         if self.meta_name:
             img_meta = load_pickle(img_dir / self.meta_name)
             extrinsic_l = img_meta["extrinsic_l"]
             extrinsic_r = img_meta["extrinsic_r"]
             intrinsic_l = img_meta["intrinsic_l"][:3, :3]
-            # intrinsic_l[:2] = intrinsic_l[:2] / origin_h_old * 540
-            intrinsic_l[:2] = intrinsic_l[:2] / 2
-            intrinsic_l[2] = np.array([0.0, 0.0, 1.0])
+            if self.img_preprocess_resize is not None:
+                # modify intrinsic matrix based on resized image
+                intrinsic_l[0] = intrinsic_l[0] / origin_h_old * origin_h
+                intrinsic_l[1] = intrinsic_l[1] / origin_w_old * origin_w
             baseline = np.linalg.norm(extrinsic_l[:, -1] - extrinsic_r[:, -1])
             focal_length = intrinsic_l[0, 0]
             if self.depth_name:
@@ -187,38 +180,37 @@ class MessyTableDataset(Dataset):
 
         # random crop
         if self.mode == "test":
-            x = 0
-            y = -2
-            assert self.height == 544 and self.width == 960, f"Only support H=544, W=960 for now"
-
+            
             def crop(img):
+                H, W = img.shape[:2]
+                H_tgt = int(math.ceil(H / 16) * 16)
+                H_pad_1, H_pad_2 = (H_tgt - H) // 2, (H_tgt - H) - (H_tgt - H) // 2 
+                W_tgt = int(math.ceil(W / 16) * 16)
+                W_pad_1, W_pad_2 = (W_tgt - W) // 2, (W_tgt - W) - (W_tgt - W) // 2
                 if img.ndim == 2:
-                    img = np.concatenate(
-                        [np.zeros((2, 960), dtype=img.dtype), img, np.zeros((2, 960), dtype=img.dtype)]
-                    )
+                    img = np.pad(img, ((H_pad_1, H_pad_2), (W_pad_1, W_pad_2)), mode="constant")
                 else:
-                    img = np.concatenate(
-                        [
-                            np.zeros((2, 960, img.shape[2]), dtype=img.dtype),
-                            img,
-                            np.zeros((2, 960, img.shape[2]), dtype=img.dtype),
-                        ]
-                    )
+                    img = np.pad(img, ((H_pad_1, H_pad_2), (W_pad_1, W_pad_2), (0, 0)), mode="constant")
                 return img
 
             def crop_label(img):
-                img = np.concatenate(
-                    [
-                        np.ones((2, 960), dtype=img.dtype) * self.num_classes,
-                        img,
-                        np.ones((2, 960), dtype=img.dtype) * self.num_classes,
-                    ]
-                )
+                H, W = img.shape[:2]
+                H_tgt = int(math.ceil(H / 16) * 16)
+                H_pad_1, H_pad_2 = (H_tgt - H) // 2, (H_tgt - H) - (H_tgt - H) // 2 
+                W_tgt = int(math.ceil(W / 16) * 16)
+                W_pad_1, W_pad_2 = (W_tgt - W) // 2, (W_tgt - W) - (W_tgt - W) // 2
+                img = np.pad(img, ((H_pad_1, H_pad_2), (W_pad_1, W_pad_2)), mode="constant", constant=self.num_classes)
                 return img
 
         else:
-            x = np.random.randint(0, origin_w - self.width)
-            y = np.random.randint(0, origin_h - self.height)
+            if origin_w > self.width:
+                x = np.random.randint(0, origin_w - self.width)
+            else:
+                x = 0
+            if origin_h > self.height:
+                y = np.random.randint(0, origin_h - self.height)
+            else:
+                y = 0
 
             def crop(img):
                 return img[y : y + self.height, x : x + self.width]

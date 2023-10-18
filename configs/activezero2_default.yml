@@ -1,0 +1,69 @@
+DATA:
+  TRAIN:
+    SIM:
+      ROOT_DIR: "/messytable-slow/messy-table-dataset/primv2_rdang_rdpat_rdlight/data/"
+      SPLIT_FILE: "/messytable-slow/messy-table-dataset/primv2_rdang_rdpat_rdlight/train.txt"
+      META_NAME: "meta.pkl"
+      DEPTH_NAME: "depthL.png"
+      LEFT_NAME: "0128_irL_kuafu_half.png"
+      RIGHT_NAME: "0128_irR_kuafu_half.png"
+      NORMAL_NAME: "normalL.png"
+    REAL:
+      ROOT_DIR: "/messytable-slow/messy-table-dataset/rand_scenes/rand_scenes"
+      SPLIT_FILE: "/messytable-slow/messy-table-dataset/rand_scenes/train_list.txt"
+      LEFT_NAME: "1024_irL_real_360.png"
+      RIGHT_NAME: "1024_irR_real_360.png"
+      LEFT_PATTERN_NAME: "1024_irL_real_temporal_ps11.png"
+      RIGHT_PATTERN_NAME: "1024_irR_real_temporal_ps11.png"
+      NORMAL_NAME: "normal_pred_u16_dilation_0simrepB.png"
+      NORMAL_CONF_NAME: "confidence_1_u16_dilation_0simrepB.png"
+  TEST:
+    REAL:
+      ROOT_DIR: "/media/DATA/LINUX_DATA/ICCV2021_Diagnosis/real_data_v10/"
+      SPLIT_FILE: "/media/DATA/LINUX_DATA/ICCV2021_Diagnosis/real_data_v10/test_list_hand_sample.txt"
+      META_NAME: "meta.pkl"
+      DEPTH_NAME: "depthL.png"
+      LEFT_NAME: "1024_irL_real.png"
+      RIGHT_NAME: "1024_irR_real.png"
+      LABEL_NAME: "irL_label_image.png"
+      HEIGHT: 544
+      WIDTH: 960
+      NORMAL_NAME: "normalL.png"
+MODEL_TYPE: "PSMNetEdgeNormal"
+PSMNetEdgeNormal:
+  MIN_DISP: 12
+  MAX_DISP: 96
+  NUM_DISP: 192
+  DILATION: 3
+  EDGE_WEIGHT: 15.0
+OPTIMIZER:
+  TYPE: "Adam"
+  LR: 2e-4
+LR_SCHEDULER:
+  TYPE: 'StepLR'
+  StepLR:
+    step_size: 10000
+    gamma: 0.5
+TRAIN:
+  BATCH_SIZE: 2
+  NUM_WORKERS: 2
+  LOG_PERIOD: 100
+  CHECKPOINT_PERIOD: 20000
+  MAX_TO_KEEP: 30
+  MAX_ITER: 60000
+VAL:
+  BATCH_SIZE: 1
+  NUM_WORKERS: 1
+  PERIOD: 5000
+  LOG_PERIOD: 100
+LOSS:
+  REAL_REPROJ:
+    WEIGHT: 2.0
+  SIM_REPROJ:
+    WEIGHT: 0.0
+  SIM_GRAD: 0.0
+  REAL_GRAD: 0.0
+  EDGE: 0.2
+DATA_AUG:
+  SIM_IR: False
+  DOMAINS: ("sim",)

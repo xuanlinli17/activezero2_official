@@ -1,0 +1,63 @@
+DATA:
+  TRAIN:
+    SIM:
+      ROOT_DIR: "/xuanlin-slow/modified-messy-table-dataset/data/"
+      SPLIT_FILE: "/xuanlin-slow/modified-messy-table-dataset/train.txt"
+      META_NAME: "meta.pkl"
+      DEPTH_NAME: "depthL.png"
+      LEFT_NAME: "0128_irL_kuafu_half.png"
+      RIGHT_NAME: "0128_irR_kuafu_half.png"
+      HEIGHT: 240
+      WIDTH: 424
+      IMG_PREPROCESS_RESIZE: (424, 240)
+  TEST:
+    SIM:
+      ROOT_DIR: "/xuanlin-slow/modified-messy-table-dataset-test/data/"
+      SPLIT_FILE: "/xuanlin-slow/modified-messy-table-dataset-test/test.txt"
+      META_NAME: "meta.pkl"
+      DEPTH_NAME: "depthL.png"
+      LEFT_NAME: "0128_irL_kuafu_half.png"
+      RIGHT_NAME: "0128_irR_kuafu_half.png"
+      HEIGHT: 240
+      WIDTH: 424
+      IMG_PREPROCESS_RESIZE: (424, 240)
+MODEL_TYPE: "CGIStereo"
+CGIStereo:
+  MAXDISP: 256
+OPTIMIZER:
+  TYPE: "Adam"
+  LR: 1e-3
+LR_SCHEDULER:
+  TYPE: 'StepLR'
+  StepLR:
+    step_size: 1500
+    gamma: 0.5
+TRAIN:
+  BATCH_SIZE: 20
+  NUM_WORKERS: 2
+  LOG_PERIOD: 20
+  CHECKPOINT_PERIOD: 3000
+  MAX_TO_KEEP: 30
+  MAX_ITER: 10000
+VAL:
+  BATCH_SIZE: 1
+  NUM_WORKERS: 1
+  PERIOD: 500
+  LOG_PERIOD: 20
+LOSS:
+  REAL_REPROJ:
+    WEIGHT: 0.0
+  SIM_REPROJ:
+    WEIGHT: 0.0
+  SIM_DISP:
+    WEIGHT: 1.0
+  SIM_GRAD: 0.0
+  REAL_GRAD: 0.0
+  EDGE: 0.0
+DATA_AUG:
+  SIM_IR: False
+  DOMAINS: ("sim",)
+  GAUSSIAN_MAX: 1.5
+  GAUSSIAN_KERNEL: 6
+
+  # todo: check optimizer and lr_scheduler

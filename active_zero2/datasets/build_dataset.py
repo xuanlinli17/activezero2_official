@@ -26,7 +26,7 @@ def build_dataset(cfg, mode, domain):
     else:
         data_aug_cfg = None
 
-    dataset = MessyTableDataset(
+    dataset_dict = dict(
         mode=mode,
         domain=domain,
         root_dir=dataset_cfg.ROOT_DIR,
@@ -51,5 +51,11 @@ def build_dataset(cfg, mode, domain):
         right_off_name=dataset_cfg.RIGHT_OFF_NAME,
         edge_sigma_range=dataset_cfg.EDGE_SIGMA_RANGE,
     )
+    
+    if dataset_cfg.IMG_PREPROCESS_RESIZE:
+        dataset_dict['img_preprocess_resize'] = dataset_cfg.IMG_PREPROCESS_RESIZE
+        
+    print(f"{mode} dataset config:\n", dataset_dict)
+    dataset = MessyTableDataset(**dataset_dict)
 
     return dataset
