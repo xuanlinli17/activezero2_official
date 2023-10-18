@@ -1,0 +1,67 @@
+from active_zero2.models.cgi_stereo.cgi_stereo import CGI_Stereo
+import torch, numpy as np
+import cv2
+from PIL import Image
+
+ckpt_path = 'model_020000.pth'
+img_resize = (424, 240)
+img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
+img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
+# img_L_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/19-5/0128_irL_kuafu_half.png'
+# img_R_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/19-5/0128_irR_kuafu_half.png'
+device = 'cuda:0'
+
+img_L = np.array(Image.open(img_L_path).convert(mode="L")) / 255 # [480, 848]
+img_R = np.array(Image.open(img_R_path).convert(mode="L")) / 255
+assert len(img_L.shape) == len(img_R.shape) == 2, f"Image shape {img_L.shape} {img_R.shape} not supported"
+orig_h, orig_w = img_L.shape
+img_L = cv2.resize(img_L, img_resize, interpolation=cv2.INTER_CUBIC) # shape img_resize
+img_R = cv2.resize(img_R, img_resize, interpolation=cv2.INTER_CUBIC)
+
+MAX_DISP = 256
+model = CGI_Stereo(
+    maxdisp=MAX_DISP,
+)
+model.load_state_dict(torch.load(ckpt_path)['model'])
+model = model.to(device)
+
+img_L = torch.from_numpy(img_L).float().to(device)[None, None, ...] # [1, 1, *img_resize]
+img_R = torch.from_numpy(img_R).float().to(device)[None, None, ...] # [1, 1, *img_resize]
+
+with torch.no_grad():
+    pred_dict = model({'img_l': img_L, 'img_r': img_R})
+for k in pred_dict:
+    pred_dict[k] = pred_dict[k].detach().cpu().numpy()
+img_L, img_R = img_L.squeeze().cpu().numpy(), img_R.squeeze().cpu().numpy()    
+    
+disparity = pred_dict['pred_orig'] # [1, H, W]
+disparity = disparity.squeeze() # [H, W]
+
+focal_length = 430.139801025391 * img_resize[0] / orig_w
+baseline = np.linalg.norm(
+    np.array([0.000156505, -0.01489765, -1.15314942e-05])
+    - np.array([-0.000328569, -0.06504793, 0.000665888])
+)
+
+depth = focal_length * baseline / (disparity + 1e-5)
+
+# visualize matching img
+from matplotlib import pyplot as plt
+
+prop_cycle = plt.rcParams['axes.prop_cycle']
+colors = prop_cycle.by_key()['color']
+
+matching_img = np.zeros([img_L.shape[0] * 2, img_L.shape[1] * 2])
+matching_img[:img_L.shape[0], :img_L.shape[1]] = img_L
+matching_img[img_L.shape[0]:, img_L.shape[1]:] = img_R
+plt.imshow(matching_img)
+for i in range(10, img_L.shape[0]-10, 40):
+    for j in range(10, img_L.shape[1]-10, 40):
+        rand_color = colors[np.random.randint(len(colors))]
+        plt.plot([j, j - disparity[i, j] + img_L.shape[1]], [i, i + img_L.shape[0]], 'o', color=rand_color)
+        plt.plot([j, j - disparity[i, j] + img_L.shape[1]], [i, i + img_L.shape[0]], linewidth=1.0, color=rand_color)
+        
+# plt.imshow(depth)
+plt.show()
+# Image.save('/home/xuanlin/Downloads/test_depth.png', depth)
+print("asdf")
