@@ -127,7 +127,7 @@ if __name__ == "__main__":
     if is_distributed:
         model = SyncBatchNorm.convert_sync_batchnorm(model)
         model_parallel = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[local_rank], output_device=local_rank
+            model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True
         )
     else:
         model_parallel = torch.nn.DataParallel(model)
