@@ -84,7 +84,7 @@ class MessyTableDataset(Dataset):
         self.img_preprocess_resize = img_preprocess_resize
 
         logger.info(
-            f"MessyTableDataset: mode: {mode}, domain: {domain}, root_dir: {root_dir}, length: {len(self.img_dirs)}, downsample_factor: {self.img_downsample_factor}"
+            f"MessyTableDataset: mode: {mode}, domain: {domain}, root_dir: {root_dir}, length: {len(self.img_dirs)}"
             f" left_name: {left_name}, right_name: {right_name},"
             f" left_pattern_name: {left_pattern_name}, right_pattern_name: {right_pattern_name}"
         )

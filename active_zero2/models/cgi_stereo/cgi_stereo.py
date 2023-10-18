@@ -164,13 +164,17 @@ class hourglass_fusion(nn.Module):
         conv3 = self.conv3(conv2)
 
         conv3 = self.CGF_32(conv3, imgs[3])
-        conv3_up = self.conv3_up(conv3)
+        conv3_up = self.conv3_up(conv3) # [B, C, D//4//4, H, W]
+        if conv3_up.shape[-2:] != conv2.shape[-2:]:
+            conv3_up = F.interpolate(conv3_up, size=conv2.shape[-3:], mode='trilinear', align_corners=True)
 
         conv2 = torch.cat((conv3_up, conv2), dim=1)
         conv2 = self.agg_0(conv2)
 
         conv2 = self.CGF_16(conv2, imgs[2])
         conv2_up = self.conv2_up(conv2)
+        if conv2_up.shape[-2:] != conv1.shape[-2:]:
+            conv2_up = F.interpolate(conv2_up, size=conv1.shape[-3:], mode='trilinear', align_corners=True)
 
         conv1 = torch.cat((conv2_up, conv1), dim=1)
         conv1 = self.agg_1(conv1)
@@ -219,6 +223,10 @@ class CGI_Stereo(nn.Module):
 
     def forward(self, data_batch):
         left, right = data_batch['img_l'], data_batch['img_r']
+        if left.shape[1] == 1:
+            left = left.tile((1,3,1,1))
+        if right.shape[1] == 1:
+            right = right.tile((1,3,1,1))
         features_left = self.feature(left)
         features_right = self.feature(right)
         features_left, features_right = self.feature_up(features_left, features_right)
@@ -256,15 +264,18 @@ class CGI_Stereo(nn.Module):
             "pred_orig": pred_up * 4, # [bs, H, W]
             "pred_div4": pred.squeeze(1) * 4, # [bs, H/4, W/4]
         }
+        return pred_dict
         
     def compute_disp_loss(self, data_batch, pred_dict):
         disp_gt = data_batch["img_disp_l"]
         disp_gt_div4 = F.interpolate(disp_gt, size=pred_dict["pred_div4"].shape[-2:], mode="nearest")
+        disp_gt = disp_gt.squeeze(1) # [B, H, W]
+        disp_gt_div4 = disp_gt_div4.squeeze(1) # [B, H//4, W//4]
         # Get stereo loss on sim
         # Note in training we do not exclude bg
         mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
         mask.detach()
-        mask_div4 = (disp_gt_div4 < self.maxdisp//4) * (disp_gt_div4 > 0)
+        mask_div4 = (disp_gt_div4 < self.maxdisp) * (disp_gt_div4 > 0)
         mask_div4.detach()
         
         loss_disp = 0.0
