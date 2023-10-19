@@ -377,7 +377,7 @@ def render_scene(
                         chosen_primitive_info_key_idx = np.random.randint(len(primitive_info_keys))
                         chosen_primitive = primitive_info[primitive_info_keys[chosen_primitive_info_key_idx]]
                         cam_extrinsic = sample_camera_pose_near_primitive(
-                            primitive_obj=chosen_primitive, center=obj_center, radius=0.15
+                            primitive_obj=chosen_primitive, center=obj_center, radius=0.23
                         )
                     else:
                         alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
@@ -385,7 +385,7 @@ def render_scene(
                     # if sample_camera_near_primitive and not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.13):
                         # the camera pose is too far away from an object; resample a camera pose
                         # continue
-                    if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.04):
+                    if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.03):
                         break
                 else:
                     alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]

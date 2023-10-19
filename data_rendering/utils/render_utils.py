@@ -330,7 +330,7 @@ def get_random_pose(h=0.02, clutter_option='regular'):
         # smaller range
         random_x = np.random.uniform(-0.15, 0.7, 1)[0]
         random_y = np.random.uniform(-0.3, 0.5, 1)[0]
-        random_z = np.random.uniform(0, 0.4, 1)[0]
+        random_z = np.random.uniform(0, 0.5, 1)[0]
     R = rand_rotation_matrix()
     T = np.hstack((R, np.array([[random_x], [random_y], [random_z]])))
     T = np.vstack((T, np.array([0, 0, 0, 1])))
@@ -339,28 +339,30 @@ def get_random_pose(h=0.02, clutter_option='regular'):
 
 
 def sample_camera_pose_near_primitive(primitive_obj, center, radius):
+    radius_min = 0.05
+    radius = radius_min + radius
     r, l = primitive_obj['size']['r'], primitive_obj['size']['l']
     if primitive_obj['type'] == 'sphere':
         direction = np.random.uniform(-1, 1, 3)
         direction = direction / np.linalg.norm(direction + 1e-6)
-        cam_pos = primitive_obj['pose'][:3, 3] + direction * (r + np.random.uniform(0.05, radius))
+        cam_pos = primitive_obj['pose'][:3, 3] + direction * (r + np.random.uniform(radius_min, radius))
     elif primitive_obj['type'] == 'capsule':
         if np.random.uniform() < 0.5:
             direction_circ = np.random.uniform(-1, 1, 2)
             direction_circ = direction_circ / np.linalg.norm(direction_circ + 1e-6)
-            cam_pos_circ = direction_circ * (r + np.random.uniform(0.05, radius))
+            cam_pos_circ = direction_circ * (r + np.random.uniform(radius_min, radius))
             cam_pos = np.concatenate([cam_pos_circ, np.random.uniform(-l, l, 1)])
         else:
             direction = np.random.uniform(-1, 1, 3)
             direction[-1] = np.abs(direction[-1])
             direction = direction / np.linalg.norm(direction + 1e-6)
-            cam_pos = np.array([0, 0, l]) + direction * (r + np.random.uniform(0.05, radius))
+            cam_pos = np.array([0, 0, l]) + direction * (r + np.random.uniform(radius_min, radius))
             cam_pos = cam_pos * (np.random.uniform() < 0.5)
         capsule_to_cam = np.eye(4)
         capsule_to_cam[:3, 3] = cam_pos
         cam_pos = (primitive_obj['pose'] * capsule_to_cam)[:3, 3]
     elif primitive_obj['type'] == 'box':
-        direction = np.random.uniform(r + 0.05, r + radius, 3)
+        direction = np.random.uniform(r + radius_min, r + radius, 3)
         direction = direction * np.random.choice([-1, 1], 3)
         box_to_cam = np.eye(4)
         box_to_cam[:3, 3] = direction
@@ -542,24 +544,25 @@ def check_camera_collision_with_primitive_dict(pos, primitive_info, eps=0.01):
     cam_pose[:3, 3] = pos
     for k, v in primitive_info.items():
         r, l = v['size']['r'], v['size']['l']
+        this_eps = min(eps, max(r, l) / 3)
         if v['type'] == 'sphere':
             d = np.linalg.norm(pos - v['pose'][:3, 3])
-            if d < r + eps:
+            if d < r + this_eps:
                 return True
         elif v['type'] == 'capsule':
             rel_pose = np.linalg.inv(v['pose']) * cam_pose
             rel_pos = rel_pose[:3, 3]
-            coll_cyl = np.linalg.norm(rel_pos[:2]) < r + eps
-            coll_cyl = coll_cyl and (abs(rel_pos[-1]) < l + eps)
-            coll_sph = np.linalg.norm(rel_pos - np.array([0, 0, l])) < r + eps
-            coll_sph = coll_sph or (np.linalg.norm(rel_pos - np.array([0, 0, -l])) < r + eps)
+            coll_cyl = np.linalg.norm(rel_pos[:2]) < r + this_eps
+            coll_cyl = coll_cyl and (abs(rel_pos[-1]) < l + this_eps)
+            coll_sph = np.linalg.norm(rel_pos - np.array([0, 0, l])) < r + this_eps
+            coll_sph = coll_sph or (np.linalg.norm(rel_pos - np.array([0, 0, -l])) < r + this_eps)
             if coll_cyl or coll_sph:
                 return True
         elif v['type'] == 'box':
             rel_pose = np.linalg.inv(v['pose']) * cam_pose
             rel_pos = rel_pose[:3, 3]
             rel_pos_abs = np.abs(rel_pos)
-            if np.all(rel_pos_abs < r + eps):
+            if np.all(rel_pos_abs < r + this_eps):
                 return True
     return False
 
