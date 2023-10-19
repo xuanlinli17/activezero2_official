@@ -377,21 +377,24 @@ def render_scene(
                         chosen_primitive_info_key_idx = np.random.randint(len(primitive_info_keys))
                         chosen_primitive = primitive_info[primitive_info_keys[chosen_primitive_info_key_idx]]
                         cam_extrinsic = sample_camera_pose_near_primitive(
-                            primitive_obj=chosen_primitive, center=obj_center, radius=0.23
+                            primitive_obj=chosen_primitive, center=obj_center, min_radius=0.015, max_radius=0.20
                         )
+                        # print("*****************cam pose near primitive", cam_extrinsic)
                     else:
                         alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
                         cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
+                        # print("*****************cam pose spherical", cam_extrinsic)
                     # if sample_camera_near_primitive and not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.13):
                         # the camera pose is too far away from an object; resample a camera pose
                         # continue
-                    if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.03):
+                    cam_pos_arr = [cam_extrinsic[:3, 3], (cam_extrinsic @ cam_irL_rel_extrinsic_base)[:3, 3], (cam_extrinsic @ cam_irR_rel_extrinsic_base)[:3, 3]]
+                    if not check_camera_collision_with_primitive_dict(cam_pos_arr, primitive_info, eps=0.005):
                         break
                 else:
                     alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
                     cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
                     break
-            cam_mount.set_pose(sapien.Pose.from_transformation_matrix(cam_extrinsic))
+            cam_mount.set_pose(sapien.Pose.from_transformation_matrix(cam_extrinsic)) # T^w_(w->(cam in ros))
 
             ir_projector_pose = cam_mount.get_pose() * pose_rgb_irproj
             apos = ir_projector_pose.to_transformation_matrix()[:3, :3] @ mount_T

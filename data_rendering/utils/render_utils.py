@@ -338,35 +338,34 @@ def get_random_pose(h=0.02, clutter_option='regular'):
     return pose
 
 
-def sample_camera_pose_near_primitive(primitive_obj, center, radius):
-    radius_min = 0.05
-    radius = radius_min + radius
+def sample_camera_pose_near_primitive(primitive_obj, center, min_radius=0.02, max_radius=0.25):
     r, l = primitive_obj['size']['r'], primitive_obj['size']['l']
     if primitive_obj['type'] == 'sphere':
         direction = np.random.uniform(-1, 1, 3)
         direction = direction / np.linalg.norm(direction + 1e-6)
-        cam_pos = primitive_obj['pose'][:3, 3] + direction * (r + np.random.uniform(radius_min, radius))
+        cam_pos = primitive_obj['pose'][:3, 3] + direction * (r + np.random.uniform(min_radius, max_radius))
     elif primitive_obj['type'] == 'capsule':
+        # x-axis = half length direction
         if np.random.uniform() < 0.5:
             direction_circ = np.random.uniform(-1, 1, 2)
             direction_circ = direction_circ / np.linalg.norm(direction_circ + 1e-6)
-            cam_pos_circ = direction_circ * (r + np.random.uniform(radius_min, radius))
-            cam_pos = np.concatenate([cam_pos_circ, np.random.uniform(-l, l, 1)])
+            cam_pos_circ = direction_circ * (r + np.random.uniform(min_radius, max_radius))
+            cam_pos = np.concatenate([np.random.uniform(-l, l, 1), cam_pos_circ])
         else:
             direction = np.random.uniform(-1, 1, 3)
-            direction[-1] = np.abs(direction[-1])
+            direction[0] = np.abs(direction[0])
             direction = direction / np.linalg.norm(direction + 1e-6)
-            cam_pos = np.array([0, 0, l]) + direction * (r + np.random.uniform(radius_min, radius))
+            cam_pos = np.array([l, 0, 0]) + direction * (r + np.random.uniform(min_radius, max_radius))
             cam_pos = cam_pos * (np.random.uniform() < 0.5)
         capsule_to_cam = np.eye(4)
         capsule_to_cam[:3, 3] = cam_pos
-        cam_pos = (primitive_obj['pose'] * capsule_to_cam)[:3, 3]
+        cam_pos = (primitive_obj['pose'] @ capsule_to_cam)[:3, 3]
     elif primitive_obj['type'] == 'box':
-        direction = np.random.uniform(r + radius_min, r + radius, 3)
+        direction = np.random.uniform(r + min_radius, r + max_radius, 3)
         direction = direction * np.random.choice([-1, 1], 3)
         box_to_cam = np.eye(4)
         box_to_cam[:3, 3] = direction
-        cam_pos = (primitive_obj['pose'] * box_to_cam)[:3, 3]
+        cam_pos = (primitive_obj['pose'] @ box_to_cam)[:3, 3]
     
     if np.random.random() < 0.7:
         forward = primitive_obj['pose'][:3, 3] - cam_pos
@@ -538,32 +537,41 @@ def load_random_primitives_v2(scene, renderer, idx, clutter_option='regular'):
 
     return primitive_info
 
-def check_camera_collision_with_primitive_dict(pos, primitive_info, eps=0.01):
+def check_camera_collision_with_primitive_dict(pos_arr, primitive_info, eps=0.01):
     # check whether the camera collides with any of the primitive shapes
-    cam_pose = np.eye(4)
-    cam_pose[:3, 3] = pos
-    for k, v in primitive_info.items():
-        r, l = v['size']['r'], v['size']['l']
-        this_eps = min(eps, max(r, l) / 3)
-        if v['type'] == 'sphere':
-            d = np.linalg.norm(pos - v['pose'][:3, 3])
-            if d < r + this_eps:
-                return True
-        elif v['type'] == 'capsule':
-            rel_pose = np.linalg.inv(v['pose']) * cam_pose
-            rel_pos = rel_pose[:3, 3]
-            coll_cyl = np.linalg.norm(rel_pos[:2]) < r + this_eps
-            coll_cyl = coll_cyl and (abs(rel_pos[-1]) < l + this_eps)
-            coll_sph = np.linalg.norm(rel_pos - np.array([0, 0, l])) < r + this_eps
-            coll_sph = coll_sph or (np.linalg.norm(rel_pos - np.array([0, 0, -l])) < r + this_eps)
-            if coll_cyl or coll_sph:
-                return True
-        elif v['type'] == 'box':
-            rel_pose = np.linalg.inv(v['pose']) * cam_pose
-            rel_pos = rel_pose[:3, 3]
-            rel_pos_abs = np.abs(rel_pos)
-            if np.all(rel_pos_abs < r + this_eps):
-                return True
+    if not isinstance(pos_arr, list):
+        pos_arr = [pos_arr]
+    for pos in pos_arr:
+        cam_pose = np.eye(4)
+        cam_pose[:3, 3] = pos
+        for k, v in primitive_info.items():
+            r, l = v['size']['r'], v['size']['l']
+            this_eps = min(eps, max(r, l) / 2)
+            if v['type'] == 'sphere':
+                d = np.linalg.norm(pos - v['pose'][:3, 3])
+                if d < r + this_eps:
+                    # print("sphere", "rel_pos", pos - v['pose'][:3, 3], "r", r, "this_eps", this_eps, "d", d)
+                    return True
+            elif v['type'] == 'capsule':
+                rel_pose = np.linalg.inv(v['pose']) @ cam_pose
+                rel_pos = rel_pose[:3, 3]
+                coll_cyl = np.linalg.norm(rel_pos[1:]) < r + this_eps
+                coll_cyl = coll_cyl and (abs(rel_pos[0]) < l + this_eps)
+                coll_sph = np.linalg.norm(rel_pos - np.array([l, 0, 0])) < r + this_eps
+                coll_sph = coll_sph or (np.linalg.norm(rel_pos - np.array([-l, 0, 0])) < r + this_eps)
+                if coll_cyl or coll_sph:
+                    # if coll_cyl:
+                        # print("coll_cyl", "rel_pos", rel_pos, "r", r, "l", l, "this_eps", this_eps, "np.linalg.norm(rel_pos[:2])", np.linalg.norm(rel_pos[:2]), "abs(rel_pos[-1])", abs(rel_pos[-1]))
+                    # if coll_sph:
+                        # print("coll_sph", "rel_pos", rel_pos, "r", r, "l", l, "this_eps", this_eps, "np.linalg.norm(rel_pos - np.array([0, 0, l]))", np.linalg.norm(rel_pos - np.array([0, 0, l])), "np.linalg.norm(rel_pos - np.array([0, 0, -l]))", np.linalg.norm(rel_pos - np.array([0, 0, -l])))
+                    return True
+            elif v['type'] == 'box':
+                rel_pose = np.linalg.inv(v['pose']) @ cam_pose
+                rel_pos = rel_pose[:3, 3]
+                rel_pos_abs = np.abs(rel_pos)
+                if np.all(rel_pos_abs < r + this_eps):
+                    # print("box", "pos", pos, "rel_pos", rel_pos, "r", r, "this_eps", this_eps, v)
+                    return True
     return False
 
 
