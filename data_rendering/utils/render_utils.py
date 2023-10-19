@@ -30,7 +30,7 @@ TRANSMISSION_MIN = 0.0
 TRANSMISSION_MAX = 1.0
 
 PRIMITIVE_MIN = 10 # 25
-PRIMITIVE_MAX = 250 # 100 # 50
+PRIMITIVE_MAX = 150 # 100 # 50
 
 
 
@@ -321,9 +321,15 @@ def get_random_pose(h=0.02):
     # random_x = np.random.uniform(0.0, 0.6, 1)[0]
     # random_y = np.random.uniform(-0.3, 0.3, 1)[0]
     # random_z = np.random.uniform(0, 0.1, 1)[0]
-    random_x = np.random.uniform(-0.55, 1.4, 1)[0]
-    random_y = np.random.uniform(-0.6, 0.8, 1)[0]
-    random_z = np.random.uniform(0, 0.75, 1)[0]
+    if np.random.random() < 0.35:
+        random_x = np.random.uniform(-0.55, 1.4, 1)[0]
+        random_y = np.random.uniform(-0.6, 1.0, 1)[0]
+        random_z = np.random.uniform(0, 0.75, 1)[0]
+    else:
+        # smaller range
+        random_x = np.random.uniform(-0.15, 0.7, 1)[0]
+        random_y = np.random.uniform(-0.3, 0.5, 1)[0]
+        random_z = np.random.uniform(0, 0.4, 1)[0]
     R = rand_rotation_matrix()
     T = np.hstack((R, np.array([[random_x], [random_y], [random_z]])))
     T = np.vstack((T, np.array([0, 0, 0, 1])))
@@ -486,7 +492,6 @@ def load_random_primitives_v2(scene, renderer, idx):
     }
 
     return primitive_info
-
 
 def check_camera_collision_with_primitive_dict(pos, primitive_info, eps=0.01):
     # check whether the camera collides with any of the primitive shapes

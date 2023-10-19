@@ -366,10 +366,14 @@ def render_scene(
 
         else:
             # Obtain random camera extrinsic
+            sample_camera_near_primitive = np.random.random() < 0.5 # if True, randomly sample a camera pose near a primitive object
             while True:
                 alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
                 cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
                 if primitives or primitives_v2:
+                    if sample_camera_near_primitive and not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.10):
+                        # the camera pose is too far away from an object; resample a camera pose
+                        continue
                     if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.01):
                         break
                 else:

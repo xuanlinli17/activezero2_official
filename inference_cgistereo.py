@@ -3,10 +3,12 @@ import torch, numpy as np
 import cv2
 from PIL import Image
 
-ckpt_path = 'model_020000.pth'
+ckpt_path = 'model_oct17.pth'
 img_resize = (424, 240)
-img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
-img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
+# img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
+# img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
+img_L_path = '/home/xuanlin/Downloads/capture_close/L1_360max_Infrared.png'
+img_R_path = '/home/xuanlin/Downloads/capture_close/R1_360max_Infrared.png'
 # img_L_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/19-5/0128_irL_kuafu_half.png'
 # img_R_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/19-5/0128_irR_kuafu_half.png'
 device = 'cuda:0'
@@ -28,8 +30,15 @@ model = model.to(device)
 img_L = torch.from_numpy(img_L).float().to(device)[None, None, ...] # [1, 1, *img_resize]
 img_R = torch.from_numpy(img_R).float().to(device)[None, None, ...] # [1, 1, *img_resize]
 
+import time
 with torch.no_grad():
+    tt = time.time()
+    pred_dict = model({'img_l': img_L / 1.5, 'img_r': img_R * 2.0})
+    torch.cuda.synchronize()
+    print(time.time() - tt)
     pred_dict = model({'img_l': img_L, 'img_r': img_R})
+    torch.cuda.synchronize()
+    print(time.time() - tt)
 for k in pred_dict:
     pred_dict[k] = pred_dict[k].detach().cpu().numpy()
 img_L, img_R = img_L.squeeze().cpu().numpy(), img_R.squeeze().cpu().numpy()    
