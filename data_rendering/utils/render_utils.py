@@ -343,29 +343,34 @@ def sample_camera_pose_near_primitive(primitive_obj, center, radius):
     if primitive_obj['type'] == 'sphere':
         direction = np.random.uniform(-1, 1, 3)
         direction = direction / np.linalg.norm(direction + 1e-6)
-        cam_pos = center + direction * (r + np.random.uniform(0.02, radius))
+        cam_pos = primitive_obj['pose'][:3, 3] + direction * (r + np.random.uniform(0.05, radius))
     elif primitive_obj['type'] == 'capsule':
         if np.random.uniform() < 0.5:
             direction_circ = np.random.uniform(-1, 1, 2)
-            direction = direction / np.linalg.norm(direction + 1e-6)
-            cam_pos_circ = center + direction_circ * (r + np.random.uniform(0.02, radius))
+            direction_circ = direction_circ / np.linalg.norm(direction_circ + 1e-6)
+            cam_pos_circ = direction_circ * (r + np.random.uniform(0.05, radius))
             cam_pos = np.concatenate([cam_pos_circ, np.random.uniform(-l, l, 1)])
         else:
             direction = np.random.uniform(-1, 1, 3)
             direction[-1] = np.abs(direction[-1])
             direction = direction / np.linalg.norm(direction + 1e-6)
-            cam_pos = center + np.array([0, 0, l]) + direction * (r + np.random.uniform(0.02, radius))
+            cam_pos = np.array([0, 0, l]) + direction * (r + np.random.uniform(0.05, radius))
             cam_pos = cam_pos * (np.random.uniform() < 0.5)
         capsule_to_cam = np.eye(4)
         capsule_to_cam[:3, 3] = cam_pos
-        cam_pos = (primitive_obj['pose'] * capsul_to_cam)[:3, 3]
+        cam_pos = (primitive_obj['pose'] * capsule_to_cam)[:3, 3]
     elif primitive_obj['type'] == 'box':
-        direction = np.random.uniform(r + 0.02, r + radius, 3)
+        direction = np.random.uniform(r + 0.05, r + radius, 3)
         direction = direction * np.random.choice([-1, 1], 3)
         box_to_cam = np.eye(4)
         box_to_cam[:3, 3] = direction
         cam_pos = (primitive_obj['pose'] * box_to_cam)[:3, 3]
-    forward = (center - cam_pos) / np.linalg.norm(center - cam_pos)
+    
+    if np.random.random() < 0.7:
+        forward = primitive_obj['pose'][:3, 3] - cam_pos
+    else:
+        forward = center - cam_pos
+    forward = forward / np.linalg.norm(forward)
     left = np.cross([0, 0, 1], forward)
     left = left / np.linalg.norm(left)
     up = np.cross(forward, left)
