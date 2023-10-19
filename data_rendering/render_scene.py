@@ -305,13 +305,17 @@ def render_scene(
         for i in range(num_asset):
             info = load_random_primitives(scene, renderer=renderer, idx=i)
             primitive_info.update(info)
+        primitive_info_keys = list(primitive_info.keys())
     elif primitives_v2:
         # num_asset = random.randint(PRIMITIVE_MIN, PRIMITIVE_MAX)
-        num_asset = int(np.exp(np.random.uniform(np.log(PRIMITIVE_MIN), np.log(PRIMITIVE_MAX))))
+        clutter_option = 'regular' if np.random.random() < 0.35 else 'smaller'
+        p_max = PRIMITIVE_MAX if clutter_option == 'smaller' else int(PRIMITIVE_MAX * 1.5)
+        num_asset = int(np.exp(np.random.uniform(np.log(PRIMITIVE_MIN), np.log(p_max))))
         primitive_info = {}
         for i in range(num_asset):
-            info = load_random_primitives_v2(scene, renderer=renderer, idx=i)
+            info = load_random_primitives_v2(scene, renderer=renderer, idx=i, clutter_option=clutter_option)
             primitive_info.update(info)
+        primitive_info_keys = list(primitive_info.keys())
     else:
         if not os.path.exists(os.path.join(SCENE_DIR, f"{scene_id}/input.json")):
             logger.warning(f"{SCENE_DIR}/{scene_id}/input.json not exists.")
@@ -368,15 +372,24 @@ def render_scene(
             # Obtain random camera extrinsic
             sample_camera_near_primitive = np.random.random() < 0.5 # if True, randomly sample a camera pose near a primitive object
             while True:
-                alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
-                cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
                 if primitives or primitives_v2:
-                    if sample_camera_near_primitive and not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.10):
+                    if sample_camera_near_primitive:
+                        chosen_primitive_info_key_idx = np.random.randint(len(primitive_info_keys))
+                        chosen_primitive = primitive_info[primitive_info_keys[chosen_primitive_info_key_idx]]
+                        cam_extrinsic = sample_camera_pose_near_primitive(
+                            primitive_obj=chosen_primitive, center=obj_center, radius=0.13
+                        )
+                    else:
+                        alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
+                        cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
+                    if sample_camera_near_primitive and not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.13):
                         # the camera pose is too far away from an object; resample a camera pose
                         continue
                     if not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.01):
                         break
                 else:
+                    alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
+                    cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
                     break
             cam_mount.set_pose(sapien.Pose.from_transformation_matrix(cam_extrinsic))
 

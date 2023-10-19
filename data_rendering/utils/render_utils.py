@@ -317,15 +317,16 @@ def rand_rotation_matrix(deflection=1.0, randnums=None):
 
 
 # Get random pose on table, each grid on optical table is 0.12
-def get_random_pose(h=0.02):
+def get_random_pose(h=0.02, clutter_option='regular'):
     # random_x = np.random.uniform(0.0, 0.6, 1)[0]
     # random_y = np.random.uniform(-0.3, 0.3, 1)[0]
     # random_z = np.random.uniform(0, 0.1, 1)[0]
-    if np.random.random() < 0.35:
+    assert clutter_option in ['regular', 'smaller']
+    if clutter_option == 'regular':
         random_x = np.random.uniform(-0.55, 1.4, 1)[0]
         random_y = np.random.uniform(-0.6, 1.0, 1)[0]
         random_z = np.random.uniform(0, 0.75, 1)[0]
-    else:
+    elif clutter_option == 'smaller':
         # smaller range
         random_x = np.random.uniform(-0.15, 0.7, 1)[0]
         random_y = np.random.uniform(-0.3, 0.5, 1)[0]
@@ -335,6 +336,43 @@ def get_random_pose(h=0.02):
     T = np.vstack((T, np.array([0, 0, 0, 1])))
     pose = sapien.Pose.from_transformation_matrix(T)
     return pose
+
+
+def sample_camera_pose_near_primitive(primitive_obj, center, radius):
+    r, l = primitive_obj['size']['r'], primitive_obj['size']['l']
+    if primitive_obj['type'] == 'sphere':
+        direction = np.random.uniform(-1, 1, 3)
+        direction = direction / np.linalg.norm(direction + 1e-6)
+        cam_pos = center + direction * (r + np.random.uniform(0.02, radius))
+    elif primitive_obj['type'] == 'capsule':
+        if np.random.uniform() < 0.5:
+            direction_circ = np.random.uniform(-1, 1, 2)
+            direction = direction / np.linalg.norm(direction + 1e-6)
+            cam_pos_circ = center + direction_circ * (r + np.random.uniform(0.02, radius))
+            cam_pos = np.concatenate([cam_pos_circ, np.random.uniform(-l, l, 1)])
+        else:
+            direction = np.random.uniform(-1, 1, 3)
+            direction[-1] = np.abs(direction[-1])
+            direction = direction / np.linalg.norm(direction + 1e-6)
+            cam_pos = center + np.array([0, 0, l]) + direction * (r + np.random.uniform(0.02, radius))
+            cam_pos = cam_pos * (np.random.uniform() < 0.5)
+        capsule_to_cam = np.eye(4)
+        capsule_to_cam[:3, 3] = cam_pos
+        cam_pos = (primitive_obj['pose'] * capsul_to_cam)[:3, 3]
+    elif primitive_obj['type'] == 'box':
+        direction = np.random.uniform(r + 0.02, r + radius, 3)
+        direction = direction * np.random.choice([-1, 1], 3)
+        box_to_cam = np.eye(4)
+        box_to_cam[:3, 3] = direction
+        cam_pos = (primitive_obj['pose'] * box_to_cam)[:3, 3]
+    forward = (center - cam_pos) / np.linalg.norm(center - cam_pos)
+    left = np.cross([0, 0, 1], forward)
+    left = left / np.linalg.norm(left)
+    up = np.cross(forward, left)
+    mat44 = np.eye(4)
+    mat44[:3, :3] = np.stack([forward, left, up], axis=1)
+    mat44[:3, 3] = cam_pos
+    return mat44
 
 
 def load_random_primitives_from_info(scene, renderer, idx, primitive_info):
@@ -434,7 +472,7 @@ def load_random_primitives(scene, renderer, idx):
     return primitive_info
 
 
-def load_random_primitives_v2(scene, renderer, idx):
+def load_random_primitives_v2(scene, renderer, idx, clutter_option='regular'):
     type = random.choice(["sphere", "capsule", "box"])
 
     builder = scene.create_actor_builder()
@@ -459,21 +497,21 @@ def load_random_primitives_v2(scene, renderer, idx):
         builder.add_sphere_visual(radius=r, material=material)
         builder.add_sphere_collision(radius=r)
         s = builder.build_kinematic(name=str(idx))
-        s.set_pose(get_random_pose())
+        s.set_pose(get_random_pose(clutter_option=clutter_option))
     elif type == "capsule":
         r = np.exp(np.random.uniform(np.log(0.004), np.log(0.10)))
         l = np.exp(np.random.uniform(np.log(0.004), np.log(0.20)))
         builder.add_capsule_visual(radius=r, half_length=l, material=material)
         builder.add_capsule_collision(radius=r, half_length=l)
         s = builder.build_kinematic(name=str(idx))
-        s.set_pose(get_random_pose())
+        s.set_pose(get_random_pose(clutter_option=clutter_option))
     elif type == "box":
         r = np.exp(np.random.uniform(np.log(0.004), np.log(0.10)))
         l = 0
         builder.add_box_visual(half_size=[r, r, r], material=material)
         builder.add_box_collision(half_size=[r, r, r])
         s = builder.build_kinematic(name=str(idx))
-        s.set_pose(get_random_pose())
+        s.set_pose(get_random_pose(clutter_option=clutter_option))
 
     primitive_info = {
         f"obj_{idx}": {
