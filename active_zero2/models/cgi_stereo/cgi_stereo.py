@@ -262,8 +262,9 @@ class CGI_Stereo(nn.Module):
         pred_up = context_upsample(pred, spx_pred)
 
         pred_dict = {
-            "left_div4_feats": features_left[0],
-            "right_div4_feats": features_right[0],
+            "left_div4_feats": features_left[0], # [bs, C, H/4, W/4]
+            "right_div4_feats": features_right[0], # [bs, C, H/4, W/4]
+            "cost_prob": F.interpolate(F.softmax(cost.squeeze(1), dim=1), size=pred_up.shape[-2:], mode="nearest"), # [bs, maxdisp/4, H, W]
             "pred_orig": pred_up * 4, # [bs, H, W]
             "pred_div4": pred.squeeze(1) * 4, # [bs, H/4, W/4]
         }
