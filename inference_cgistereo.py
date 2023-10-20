@@ -8,10 +8,10 @@ from PIL import Image
 # ckpt_path = 'model_oct19_veryclose.pth'
 ckpt_path = 'model.pth'
 img_resize = (424, 240)
-# img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
-# img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
-img_L_path = '/home/xuanlin/Downloads/capture_close/L1_360max_Infrared.png'
-img_R_path = '/home/xuanlin/Downloads/capture_close/R1_360max_Infrared.png'
+img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
+img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
+# img_L_path = '/home/xuanlin/Downloads/capture_close/L1_360max_Infrared.png'
+# img_R_path = '/home/xuanlin/Downloads/capture_close/R1_360max_Infrared.png'
 # img_L_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irL_kuafu_half.png'
 # img_R_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irR_kuafu_half.png'
 device = 'cuda:0'
@@ -64,6 +64,8 @@ baseline = np.linalg.norm(
 )
 
 depth = focal_length * baseline / (disparity + 1e-5)
+# filter out depth
+depth[~disparity_conf_mask] = 0.0
 
 # visualize matching img
 from matplotlib import pyplot as plt
@@ -86,6 +88,6 @@ for i in range(10, img_L.shape[0]-10, 40):
         
 # plt.imshow(depth)
 plt.show()
-np.save('/home/xuanlin/Downloads/test_depth_1_360max_Infrared.npy', depth)
+np.save('/home/xuanlin/Downloads/test_depth_0_Infrared_new.npy', depth)
 # Image.save('/home/xuanlin/Downloads/test_depth.png', depth)
 print("asdf")
