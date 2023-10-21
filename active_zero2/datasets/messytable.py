@@ -45,6 +45,7 @@ class MessyTableDataset(Dataset):
         right_off_name="",
         edge_sigma_range=(0.0, 2.0),
         img_preprocess_resize=(960, 540),
+        disparity_reference="irl",
     ):
         self.mode = mode
 
@@ -82,6 +83,9 @@ class MessyTableDataset(Dataset):
         self.disp_grad = DispGrad()
         
         self.img_preprocess_resize = img_preprocess_resize
+        
+        self.disparity_reference = disparity_reference
+        assert self.disparity_reference in ['irl', 'rgb']
 
         logger.info(
             f"MessyTableDataset: mode: {mode}, domain: {domain}, root_dir: {root_dir}, length: {len(self.img_dirs)}"
@@ -146,7 +150,13 @@ class MessyTableDataset(Dataset):
                 # modify intrinsic matrix based on resized image
                 intrinsic_l[0] = intrinsic_l[0] / origin_h_old * origin_h
                 intrinsic_l[1] = intrinsic_l[1] / origin_w_old * origin_w
-            baseline = np.linalg.norm(extrinsic_l[:, -1] - extrinsic_r[:, -1])
+            if self.disparity_reference == 'irl':
+                # Given left and right IR images, predict the disparity under the left IR image frame
+                baseline = np.linalg.norm(extrinsic_l[:, -1] - extrinsic_r[:, -1])
+            elif self.disparity_reference == 'rgb':
+                # Given left and right IR images, directly predict the disparity under the rgb frame, which directly converts to depth
+                extrinsic = img_meta["extrinsic"]
+                baseline = np.linalg.norm((extrinsic @ np.linalg.inv(extrinsic_r))[:3, 3])
             focal_length = intrinsic_l[0, 0]
             if self.depth_name:
                 img_depth_l = (

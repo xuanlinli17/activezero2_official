@@ -5,24 +5,29 @@ from PIL import Image
 
 # ckpt_path = 'model_oct17.pth'
 # ckpt_path = 'model_oct19.pth'
-# ckpt_path = 'model_oct19_veryclose.pth'
-ckpt_path = 'model.pth'
+ckpt_path = 'model_oct19_veryclose.pth'
+# ckpt_path = 'model_oct19_384_veryclose.pth'
+# ckpt_path = 'model.pth'
 img_resize = (424, 240)
-img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
-img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
-# img_L_path = '/home/xuanlin/Downloads/capture_close/L1_360max_Infrared.png'
-# img_R_path = '/home/xuanlin/Downloads/capture_close/R1_360max_Infrared.png'
-# img_L_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irL_kuafu_half.png'
-# img_R_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irR_kuafu_half.png'
+# img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
+# img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
+# # img_L_path = '/home/xuanlin/Downloads/capture_close/L1_360max_Infrared.png'
+# # img_R_path = '/home/xuanlin/Downloads/capture_close/R1_360max_Infrared.png'
+# # img_L_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irL_kuafu_half.png'
+# # img_R_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irR_kuafu_half.png'
+# img_L = np.array(Image.open(img_L_path).convert(mode="L")) / 255 # [480, 848]
+# img_R = np.array(Image.open(img_R_path).convert(mode="L")) / 255
+f = np.load('/home/xuanlin/Downloads/capture/8cm_unaligned_images.npz')
+img_L, img_R = f['ir_l'], f['ir_r']
+
 device = 'cuda:0'
 disp_conf_topk = 2
 disp_conf_thres = 0.8 # 0.95
 MAX_DISP = 256
+disparity_frame = 'irl'
 
 
 
-img_L = np.array(Image.open(img_L_path).convert(mode="L")) / 255 # [480, 848]
-img_R = np.array(Image.open(img_R_path).convert(mode="L")) / 255
 assert len(img_L.shape) == len(img_R.shape) == 2, f"Image shape {img_L.shape} {img_R.shape} not supported"
 orig_h, orig_w = img_L.shape
 img_L = cv2.resize(img_L, img_resize, interpolation=cv2.INTER_CUBIC) # shape img_resize
@@ -58,10 +63,14 @@ disparity_confidence = np.take_along_axis(disparity_probs, top_disparity_prob_id
 disparity_conf_mask = disparity_confidence > disp_conf_thres
 
 focal_length = 430.139801025391 * img_resize[0] / orig_w
-baseline = np.linalg.norm(
-    np.array([0.000156505, -0.01489765, -1.15314942e-05])
-    - np.array([-0.000328569, -0.06504793, 0.000665888])
-)
+if disparity_frame == 'irl':
+    baseline = np.linalg.norm(
+        np.array([0.000156505, -0.01489765, -1.15314942e-05])
+        - np.array([-0.000328569, -0.06504793, 0.000665888])
+    )
+elif disparity_frame == 'rgb':
+    baseline = np.linalg.norm(np.array([-0.000328569, -0.06504793, 0.000665888]))
+        
 
 depth = focal_length * baseline / (disparity + 1e-5)
 # filter out depth
