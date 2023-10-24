@@ -302,7 +302,7 @@ class CGI_Stereo(nn.Module):
             loss_reproj = compute_reproj_loss_patch(
                 data_batch["img_pattern_l"],
                 data_batch["img_pattern_r"],
-                pred_disp_l=pred_dict["pred_orig"],
+                pred_disp_l=pred_dict["pred_orig"][:, None, :, :],
                 mask=mask,
                 ps=patch_size,
             )
@@ -315,7 +315,7 @@ class CGI_Stereo(nn.Module):
                     loss_reproj += loss_weight * compute_reproj_loss_patch(
                         data_batch["img_pattern_l"],
                         data_batch["img_pattern_r"],
-                        pred_disp_l=pred_dict[pred_name],
+                        pred_disp_l=pred_dict[pred_name][:, None, :, :],
                         mask=mask,
                         ps=patch_size,
                     )
