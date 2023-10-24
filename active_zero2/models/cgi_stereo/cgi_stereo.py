@@ -7,6 +7,7 @@ import torch.utils.data
 from torch.autograd import Variable
 import torch.nn.functional as F
 from active_zero2.models.cgi_stereo.submodule import *
+from active_zero2.utils.reprojection import compute_reproj_loss_patch
 import math
 import gc
 import time
@@ -287,3 +288,35 @@ class CGI_Stereo(nn.Module):
         loss_disp += 0.3 * F.smooth_l1_loss(pred_dict['pred_div4'][mask_div4], disp_gt_div4[mask_div4], reduction="mean")
 
         return loss_disp
+
+    def compute_reproj_loss(self, data_batch, pred_dict, use_mask: bool, patch_size: int, only_last_pred: bool):
+        if use_mask:
+            disp_gt = data_batch["img_disp_l"]
+            # Get stereo loss on sim
+            # Note in training we do not exclude bg
+            mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
+            mask.detach()
+        else:
+            mask = None
+        if only_last_pred:
+            loss_reproj = compute_reproj_loss_patch(
+                data_batch["img_pattern_l"],
+                data_batch["img_pattern_r"],
+                pred_disp_l=pred_dict["pred_orig"],
+                mask=mask,
+                ps=patch_size,
+            )
+
+            return loss_reproj
+        else:
+            loss_reproj = 0.0
+            for pred_name, loss_weight in zip(["pred_div4", "pred_orig"], [0.5, 1.0]):
+                if pred_name in pred_dict:
+                    loss_reproj += loss_weight * compute_reproj_loss_patch(
+                        data_batch["img_pattern_l"],
+                        data_batch["img_pattern_r"],
+                        pred_disp_l=pred_dict[pred_name],
+                        mask=mask,
+                        ps=patch_size,
+                    )
+            return loss_reproj
