@@ -115,7 +115,7 @@ def render_scene(
 
         # change light
         def lights_on():
-            ambient_light = np.random.rand(3)
+            ambient_light = np.random.rand(2)
             scene.set_ambient_light(ambient_light)
             scene.set_environment_map(get_random_env_file())
 
@@ -260,7 +260,19 @@ def render_scene(
             angle = np.random.uniform(-5, 5)
         else:
             raise NotImplementedError()
-        tex_tmp = rotate_image(tex, angle)
+        from wand.image import Image as WandImage
+        tex_tmp = WandImage.from_array(tex)
+        tex_tmp.virtual_pixel = 'black'
+        blur_radius = np.random.uniform(0.05, 2.5)
+        tex_tmp.blur(radius=blur_radius, sigma=blur_radius / 3)
+        
+        distort_sq, distort_l = np.random.uniform(-0.002, 0.0), np.random.uniform(-0.08, 0.0)
+        distort_c = np.random.uniform(1.0 + np.abs(distort_l) / 2, 1.0 + 1.15 * np.abs(distort_l))
+        tex_tmp.distort('barrel', (0.0, distort_sq, distort_l, distort_c))
+        
+        tex_tmp = np.array(tex_tmp)
+        cv2.imwrite("/tmp.png", tex_tmp)
+        tex_tmp = rotate_image(tex_tmp, angle)
         cv2.imwrite(os.path.join(materials_root, f"{camera_type}-pattern-sq-tmp-{tmp_idx:08d}.png"), tex_tmp)
 
         alight = scene.add_active_light(
@@ -370,14 +382,21 @@ def render_scene(
 
         else:
             # Obtain random camera extrinsic
-            sample_camera_near_primitive = np.random.random() < 0.5 # if True, randomly sample a camera pose near a primitive object
+            sample_camera_near_primitive = np.random.random() < 0.8 # if True, randomly sample a camera pose near a primitive object
+            sample_dist_primitive_rand = np.random.random()
             while True:
                 if primitives or primitives_v2:
                     if sample_camera_near_primitive:
                         chosen_primitive_info_key_idx = np.random.randint(len(primitive_info_keys))
                         chosen_primitive = primitive_info[primitive_info_keys[chosen_primitive_info_key_idx]]
+                        if sample_dist_primitive_rand < 0.18:
+                            min_radius, max_radius = 0.005, 0.03
+                        elif sample_dist_primitive_rand < 0.38:
+                            min_radius, max_radius = 0.015, 0.18
+                        else:
+                            min_radius, max_radius = 0.18, 0.90
                         cam_extrinsic = sample_camera_pose_near_primitive(
-                            primitive_obj=chosen_primitive, center=obj_center, min_radius=0.015, max_radius=0.18
+                            primitive_obj=chosen_primitive, center=obj_center, min_radius=min_radius, max_radius=max_radius
                         )
                         # print("*****************cam pose near primitive", cam_extrinsic)
                     else:

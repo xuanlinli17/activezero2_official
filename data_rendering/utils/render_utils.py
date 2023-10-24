@@ -542,6 +542,9 @@ def check_camera_collision_with_primitive_dict(pos_arr, primitive_info, eps=0.01
     if not isinstance(pos_arr, list):
         pos_arr = [pos_arr]
     for pos in pos_arr:
+        if pos[2] < 0.08:
+            # avoid too low camera poses that cause penetration with table
+            return True
         cam_pose = np.eye(4)
         cam_pose[:3, 3] = pos
         for k, v in primitive_info.items():
