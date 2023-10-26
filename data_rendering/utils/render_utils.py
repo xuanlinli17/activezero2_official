@@ -39,7 +39,8 @@ PRIMITIVE_MAX = 150 # 100 # 50
 
 with open(TEXTURE_LIST, "r") as f:
     texture_list = [line.strip() for line in f]
-
+with open(TABLE_TEXTURE_LIST, "r") as f:
+    table_texture_list = [line.strip() for line in f]
 # with open(TEXTURE_SQ_LIST, "r") as f:
 #     texture_sq_list = [line.strip() for line in f]
 #
@@ -52,6 +53,11 @@ def get_random_texture():
     path = os.path.join(TEXTURE_FOLDER, random_file)
     return path
 
+def get_random_table_texture():
+    random_file = random.choice(table_texture_list)
+    path = os.path.join(TABLE_TEXTURE_FOLDER, random_file)
+    print(path)
+    return path
 
 def get_random_sq_texture():
     random_file = random.choice(texture_sq_list)
@@ -124,8 +130,10 @@ def load_rand_table(scene, table_dir, renderer, pose=Pose()):
     elif prob < 0.7:
         material.set_diffuse_texture_from_file(get_random_texture())
     """
-    if prob < 0.36:
+    if prob < 0.2:
         material.set_transmission_texture_from_file(get_random_bin_texture())
+    elif prob < 0.7:
+        material.set_diffuse_texture_from_file(get_random_table_texture())
     builder.add_visual_from_file(os.path.join(table_dir, "optical_table.obj"), material=material)
     table = builder.build_kinematic(name="table_kuafu")
     table.set_pose(pose)

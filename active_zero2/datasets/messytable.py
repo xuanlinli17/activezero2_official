@@ -96,7 +96,11 @@ class MessyTableDataset(Dataset):
             return img_dirs
         with open(self.split_file, "r") as f_split_file:
             for l in f_split_file.readlines():
-                img_dirs.append(self.root_dir / l.strip())
+                pth = self.root_dir / l.strip()
+                img_dirs.append(pth)
+                # import glob
+                # if pth.exists() and len(glob.glob(str(pth) + "/*")) >= 15:
+                #     img_dirs.append(pth)
 
         check = False
         if check:

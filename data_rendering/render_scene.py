@@ -382,16 +382,16 @@ def render_scene(
 
         else:
             # Obtain random camera extrinsic
-            sample_camera_near_primitive = np.random.random() < 0.8 # if True, randomly sample a camera pose near a primitive object
+            sample_camera_near_primitive = np.random.random() < 0.6 # if True, randomly sample a camera pose near a primitive object
             sample_dist_primitive_rand = np.random.random()
             while True:
                 if primitives or primitives_v2:
                     if sample_camera_near_primitive:
                         chosen_primitive_info_key_idx = np.random.randint(len(primitive_info_keys))
                         chosen_primitive = primitive_info[primitive_info_keys[chosen_primitive_info_key_idx]]
-                        if sample_dist_primitive_rand < 0.18:
+                        if sample_dist_primitive_rand < 0.25:
                             min_radius, max_radius = 0.005, 0.03
-                        elif sample_dist_primitive_rand < 0.38:
+                        elif sample_dist_primitive_rand < 0.50:
                             min_radius, max_radius = 0.015, 0.18
                         else:
                             min_radius, max_radius = 0.18, 0.90
@@ -400,8 +400,21 @@ def render_scene(
                         )
                         # print("*****************cam pose near primitive", cam_extrinsic)
                     else:
-                        alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
-                        cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
+                        if np.random.random() < 0.6:
+                            alpha, theta, radius = angle_list[np.random.randint(len(angle_list))]
+                            cam_extrinsic = spherical_pose(center=obj_center, radius=radius, alpha=alpha, theta=theta)
+                        else:
+                            # randomly sample a bird-eye view pose
+                            cam_pos = np.random.uniform([0.1, -0.3, 0.4], [0.6, 0.3, 0.9])
+                            lookat = np.random.uniform([-0.15, -0.15, 0.05], [0.15, 0.15, 0.10])
+                            lookat[:2] = lookat[:2] + cam_pos[:2]
+                            forward = (lookat - cam_pos) / np.linalg.norm(lookat - cam_pos)
+                            left = np.cross([0, 0, 1], forward)
+                            left = left / np.linalg.norm(left)
+                            up = np.cross(forward, left)
+                            cam_extrinsic = np.eye(4)
+                            cam_extrinsic[:3, :3] = np.stack([forward, left, up], axis=1)
+                            cam_extrinsic[:3, 3] = cam_pos
                         # print("*****************cam pose spherical", cam_extrinsic)
                     # if sample_camera_near_primitive and not check_camera_collision_with_primitive_dict(cam_extrinsic[:3, 3], primitive_info, eps=0.13):
                         # the camera pose is too far away from an object; resample a camera pose
