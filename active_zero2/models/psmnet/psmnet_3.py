@@ -66,11 +66,15 @@ class hourglass(nn.Module):
 
         out = self.conv3(pre)
         out = self.conv4(out)
-
+        out = self.conv5(out) #[B, C, D, H, W]
         if presqu is not None:
-            post = F.relu(self.conv5(out) + presqu, inplace=True)
+            if out.shape[-3:] != presqu.shape[-3:]:
+                out = F.interpolate(out, presqu.shape[-3:], mode="trilinear", align_corners=True)
+            post = F.relu(out + presqu, inplace=True)
         else:
-            post = F.relu(self.conv5(out) + pre, inplace=True)
+            if out.shape[-3:] != pre.shape[-3:]:
+                out = F.interpolate(out, pre.shape[-3:], mode="trilinear", align_corners=True)
+            post = F.relu(out + pre, inplace=True)
 
         out = self.conv6(post)
         return out, pre, post
