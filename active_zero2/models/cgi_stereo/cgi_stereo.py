@@ -279,7 +279,8 @@ class CGI_Stereo(nn.Module):
         return pred_dict
         
     def to_processed_disparity(self, raw_disp, focal_length, baseline):
-        depth = focal_length * baseline / (raw_disp + 1e-8)
+        # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
+        depth = (focal_length * baseline)[:, None, None] / (raw_disp + 1e-8)
         processed_disp = (
                 (torch.log(depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
                 / (np.log(self.min_depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
@@ -287,9 +288,10 @@ class CGI_Stereo(nn.Module):
         return self.maxdisp * processed_disp
 
     def to_raw_disparity(self, processed_disp, focal_length, baseline):
+        # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
         raw_disp = processed_disp / self.maxdisp
         depth = ((self.min_depth + self.disp_loglinear_c) ** raw_disp) * ((self.max_depth + self.disp_loglinear_c) ** (1 - raw_disp)) - self.disp_loglinear_c
-        return focal_length * baseline / (depth + 1e-8)
+        return (focal_length * baseline)[:, None, None] / (depth + 1e-8)
         
 
     def compute_disp_loss(self, data_batch, pred_dict):
