@@ -27,14 +27,14 @@ CGIStereo:
   DISPARITY_MODE: "log_linear"
 OPTIMIZER:
   TYPE: "Adam"
-  LR: 1e-3
+  LR: 8e-4
 LR_SCHEDULER:
   TYPE: 'StepLR'
   StepLR:
     step_size: 1500
     gamma: 0.9
 TRAIN:
-  BATCH_SIZE: 10
+  BATCH_SIZE: 8
   NUM_WORKERS: 2
   LOG_PERIOD: 20
   CHECKPOINT_PERIOD: 1500

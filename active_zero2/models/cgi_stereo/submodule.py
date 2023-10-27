@@ -188,18 +188,21 @@ def build_loglinear_correlation_volume(refimg_fea, targetimg_fea, maxdisp,
     focal_length, baseline = focal_length[0], baseline[0]
     B, C, H, W = refimg_fea.shape
     processed_disp = torch.arange(maxdisp, device=refimg_fea.device)
-    disp_t = 1.0 / (maxdisp - processed_disp)
+    disp_t = processed_disp / maxdisp
     depth = (
         torch.exp(disp_t * np.log(min_depth + disp_loglinear_c)
                   + (1 - disp_t) * np.log(max_depth + disp_loglinear_c))
         - disp_loglinear_c
     )
-    raw_disp = focal_length * baseline / (depth[None, :] + 1e-6) # [maxdisp]
+    raw_disp = focal_length * baseline / (depth + 1e-6) # [maxdisp]
     # align left and right images according to the raw disparity to produce cost volume
     raw_disp = raw_disp / (W - 1)
     x_base = torch.linspace(0, 1, W).repeat(B, H, 1).type_as(refimg_fea)
     y_base = torch.linspace(0, 1, H).repeat(B, W, 1).transpose(1, 2).type_as(refimg_fea)
-    flow_field = torch.stack((x_base[:, None, :, :] + raw_disp[None, :, None, None], y_base[:, None, :, :]), dim=4) # [B, D, H, W, 2]
+    flow_field = torch.stack(
+            (x_base[:, None, :, :] + raw_disp[None, :, None, None], y_base[:, None, :, :].tile(1, maxdisp, 1, 1)), 
+            dim=4
+    ) # [B, D, H, W, 2]
     flow_field = flow_field.view(B, maxdisp * H, W, 2) # [B, D*H, W, 2]
     aligned_refimg_fea = F.grid_sample(
         refimg_fea, 2 * flow_field - 1, mode="bilinear", padding_mode="zeros", align_corners=True

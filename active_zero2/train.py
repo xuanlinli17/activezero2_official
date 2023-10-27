@@ -327,6 +327,7 @@ if __name__ == "__main__":
             data_batch = {k: v.cuda(non_blocking=True) for k, v in data_batch.items() if isinstance(v, torch.Tensor)}
             # Forward
             pred_dict = model_parallel(data_batch)
+            torch.cuda.synchronize()
 
             if cfg.LOSS.SIM_REPROJ.WEIGHT > 0:
                 sim_reproj = model.compute_reproj_loss(

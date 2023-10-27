@@ -292,11 +292,11 @@ class CGI_Stereo(nn.Module):
                 (torch.log(depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
                 / (np.log(self.min_depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
         ) # a valid range of disp_t is [1/maxdisp, 1]
-        return self.maxdisp - 1 / (disp_t + 1e-8)
+        return self.maxdisp * disp_t
 
     def to_raw_disparity(self, processed_disp, focal_length, baseline):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
-        disp_t = 1 / (self.maxdisp - processed_disp + 1e-8)
+        disp_t = processed_disp / self.maxdisp
         depth = (
             ((self.min_depth + self.disp_loglinear_c) ** disp_t) 
             * ((self.max_depth + self.disp_loglinear_c) ** (1 - disp_t)) 
