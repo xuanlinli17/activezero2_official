@@ -6,14 +6,17 @@ from PIL import Image
 # ckpt_path = 'model_oct17.pth'
 # ckpt_path = 'model_oct19.pth'
 # ckpt_path = 'model_oct19_veryclose.pth'
-ckpt_path = 'model.pth'
+# ckpt_path = 'model.pth'
+ckpt_path = 'model_oct23_balanced.pth'
 img_resize = (424, 240)
-img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
-img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
+# img_L_path = '/home/xuanlin/Downloads/capture_close/L0_Infrared.png'
+# img_R_path = '/home/xuanlin/Downloads/capture_close/R0_Infrared.png'
 # img_L_path = '/home/xuanlin/Downloads/capture_close/L1_360max_Infrared.png'
 # img_R_path = '/home/xuanlin/Downloads/capture_close/R1_360max_Infrared.png'
 # img_L_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irL_kuafu_half.png'
 # img_R_path = '/home/xuanlin/Downloads/modified-messy-table-dataset-test/data/238-5/0128_irR_kuafu_half.png'
+img_L_path = '/home/xuanlin/Downloads/capture/60cm_irl.png'
+img_R_path = '/home/xuanlin/Downloads/capture/60cm_irr.png'
 device = 'cuda:0'
 disp_conf_topk = 2
 disp_conf_thres = 0.8 # 0.95
@@ -78,8 +81,8 @@ matching_img[:img_L.shape[0], :img_L.shape[1]] = img_L
 matching_img[:img_L.shape[0], :img_L.shape[1]][~disparity_conf_mask] = 0
 matching_img[img_L.shape[0]:, img_L.shape[1]:] = img_R
 plt.imshow(matching_img)
-for i in range(10, img_L.shape[0]-10, 40):
-    for j in range(10, img_L.shape[1]-10, 40):
+for i in range(10, img_L.shape[0]-10, 20):
+    for j in range(10, img_L.shape[1]-10, 20):
         if not disparity_conf_mask[i, j]:
             continue
         rand_color = colors[np.random.randint(len(colors))]

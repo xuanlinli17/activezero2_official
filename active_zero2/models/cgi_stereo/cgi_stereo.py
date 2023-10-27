@@ -253,7 +253,14 @@ class CGI_Stereo(nn.Module):
         match_left = self.desc(self.conv(features_left[0]))
         match_right = self.desc(self.conv(features_right[0]))
 
-        corr_volume = build_norm_correlation_volume(match_left, match_right, self.maxdisp//4)
+        if self.disparity_mode == 'regular':
+            corr_volume = build_norm_correlation_volume(match_left, match_right, self.maxdisp//4)
+        else:
+            corr_volume = build_loglinear_correlation_volume(
+                match_left, match_right, self.maxdisp//4,
+                data_batch['focal_length'], data_batch['baseline'], 
+                self.min_depth, self.max_depth, self.disp_loglinear_c
+            )
         corr_volume = self.corr_stem(corr_volume)
         feat_volume = self.semantic(features_left[0]).unsqueeze(2)
         volume = self.agg(feat_volume * corr_volume)
@@ -281,16 +288,20 @@ class CGI_Stereo(nn.Module):
     def to_processed_disparity(self, raw_disp, focal_length, baseline):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
         depth = (focal_length * baseline)[:, None, None] / (raw_disp + 1e-8)
-        processed_disp = (
+        disp_t = (
                 (torch.log(depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
                 / (np.log(self.min_depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
-        )
-        return self.maxdisp * processed_disp
+        ) # a valid range of disp_t is [1/maxdisp, 1]
+        return self.maxdisp - 1 / (disp_t + 1e-8)
 
     def to_raw_disparity(self, processed_disp, focal_length, baseline):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
-        raw_disp = processed_disp / self.maxdisp
-        depth = ((self.min_depth + self.disp_loglinear_c) ** raw_disp) * ((self.max_depth + self.disp_loglinear_c) ** (1 - raw_disp)) - self.disp_loglinear_c
+        disp_t = 1 / (self.maxdisp - processed_disp + 1e-8)
+        depth = (
+            ((self.min_depth + self.disp_loglinear_c) ** disp_t) 
+            * ((self.max_depth + self.disp_loglinear_c) ** (1 - disp_t)) 
+            - self.disp_loglinear_c
+        )
         return (focal_length * baseline)[:, None, None] / (depth + 1e-8)
         
 
@@ -307,9 +318,15 @@ class CGI_Stereo(nn.Module):
         pred_div4 = pred_dict['pred_div4']
         # Get stereo loss on sim
         # Note in training we do not exclude bg
-        mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
+        if self.disparity_mode == 'regular':
+            mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
+        else:
+            mask = (disp_gt <= self.maxdisp - 1) * (disp_gt >= 0)
         mask.detach()
-        mask_div4 = (disp_gt_div4 < self.maxdisp) * (disp_gt_div4 > 0)
+        if self.disparity_mode == 'regular':
+            mask_div4 = (disp_gt_div4 < self.maxdisp) * (disp_gt_div4 > 0)
+        else:
+            mask_div4 = (disp_gt_div4 <= self.maxdisp - 1) * (disp_gt_div4 >= 0)
         mask_div4.detach()
         
         loss_disp = 0.0
@@ -326,7 +343,7 @@ class CGI_Stereo(nn.Module):
             if self.disparity_mode == 'regular':
                 mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
             else:
-                mask = (disp_gt < self.max_depth) * (disp_gt > 0)
+                mask = (disp_gt <= self.max_depth) * (disp_gt > self.min_depth)
             mask.detach()
         else:
             mask = None
