@@ -190,9 +190,16 @@ class hourglass_fusion(nn.Module):
 
 
 class CGI_Stereo(nn.Module):
-    def __init__(self, maxdisp):
+    def __init__(self, maxdisp, disparity_mode='regular'):
         super(CGI_Stereo, self).__init__()
         self.maxdisp = maxdisp 
+        self.disparity_mode = 'regular'
+        assert self.disparity_mode in ['regular', 'log_linear']
+        if self.disparity_mode == 'log_linear':
+            self.min_depth = 0.04
+            self.max_depth = 3.0
+            self.disp_loglinear_c = 0.01
+
         self.feature = Feature()
         self.feature_up = FeatUp()
         chans = [16, 24, 32, 96, 160]
@@ -271,11 +278,31 @@ class CGI_Stereo(nn.Module):
         }
         return pred_dict
         
+    def to_processed_disparity(self, raw_disp, focal_length, baseline):
+        depth = focal_length * baseline / (raw_disp + 1e-8)
+        processed_disp = (
+                (np.log(depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
+                / (np.log(self.min_depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
+        )
+        return self.maxdisp * processed_disp
+
+    def to_raw_disparity(self, processed_disp, focal_length, baseline):
+        raw_disp = processed_disp / self.maxdisp
+        depth = ((self.min_depth + self.disp_loglinear_c) ** raw_disp) * ((self.max_depth + self.disp_loglinear_c) ** (1 - raw_disp)) - self.disp_loglinear_c
+        return focal_length * baseline / (depth + 1e-8)
+        
+
     def compute_disp_loss(self, data_batch, pred_dict):
         disp_gt = data_batch["img_disp_l"]
         disp_gt_div4 = F.interpolate(disp_gt, size=pred_dict["pred_div4"].shape[-2:], mode="nearest")
         disp_gt = disp_gt.squeeze(1) # [B, H, W]
         disp_gt_div4 = disp_gt_div4.squeeze(1) # [B, H//4, W//4]
+        if self.disparity_mode == "log_linear":
+            disp_gt = self.to_processed_disparity(disp_gt, data_batch["focal_length"], data_batch["baseline"])
+            disp_gt_div4 = self.to_processed_disparity(disp_gt_div4, data_batch["focal_length"], data_batch["baseline"])
+
+        pred_orig = pred_dict['pred_orig']
+        pred_div4 = pred_dict['pred_div4']
         # Get stereo loss on sim
         # Note in training we do not exclude bg
         mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
@@ -284,8 +311,8 @@ class CGI_Stereo(nn.Module):
         mask_div4.detach()
         
         loss_disp = 0.0
-        loss_disp += 1.0 * F.smooth_l1_loss(pred_dict['pred_orig'][mask], disp_gt[mask], reduction="mean")
-        loss_disp += 0.3 * F.smooth_l1_loss(pred_dict['pred_div4'][mask_div4], disp_gt_div4[mask_div4], reduction="mean")
+        loss_disp += 1.0 * F.smooth_l1_loss(pred_orig[mask], disp_gt[mask], reduction="mean")
+        loss_disp += 0.3 * F.smooth_l1_loss(pred_div4[mask_div4], disp_gt_div4[mask_div4], reduction="mean")
 
         return loss_disp
 
@@ -294,15 +321,21 @@ class CGI_Stereo(nn.Module):
             disp_gt = data_batch["img_disp_l"]
             # Get stereo loss on sim
             # Note in training we do not exclude bg
-            mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
+            if self.disparity_mode == 'regular':
+                mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
+            else:
+                mask = (disp_gt < self.max_depth) * (disp_gt > 0)
             mask.detach()
         else:
             mask = None
         if only_last_pred:
+            pred_disp_l = pred_dict["pred_orig"][:, None, :, :]
+            if self.disparity_mode == 'log_linear':
+                pred_disp_l = self.to_raw_disparity(pred_disp_l, data_batch["focal_length"], data_batch["baseline"])
             loss_reproj = compute_reproj_loss_patch(
                 data_batch["img_pattern_l"],
                 data_batch["img_pattern_r"],
-                pred_disp_l=pred_dict["pred_orig"][:, None, :, :],
+                pred_disp_l=pred_disp_l,
                 mask=mask,
                 ps=patch_size,
             )
@@ -312,10 +345,13 @@ class CGI_Stereo(nn.Module):
             loss_reproj = 0.0
             for pred_name, loss_weight in zip(["pred_div4", "pred_orig"], [0.5, 1.0]):
                 if pred_name in pred_dict:
+                    pred_disp_l = pred_dict[pred_name][:, None, :, :]
+                    if self.disparity_mode == 'log_linear':
+                        pred_disp_l = self.to_raw_disparity(pred_disp_l, data_batch["focal_length"], data_batch["baseline"])
                     loss_reproj += loss_weight * compute_reproj_loss_patch(
                         data_batch["img_pattern_l"],
                         data_batch["img_pattern_r"],
-                        pred_disp_l=pred_dict[pred_name][:, None, :, :],
+                        pred_disp_l=pred_disp_l,
                         mask=mask,
                         ps=patch_size,
                     )

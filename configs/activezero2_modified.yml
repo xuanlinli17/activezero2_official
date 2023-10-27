@@ -24,6 +24,7 @@ DATA:
 MODEL_TYPE: "CGIStereo"
 CGIStereo:
   MAX_DISP: 256
+  DISPARITY_MODE: "log_linear"
 OPTIMIZER:
   TYPE: "Adam"
   LR: 1e-3

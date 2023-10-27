@@ -192,6 +192,7 @@ _C.CFNet.USE_CONCAT_VOLUME = True
 
 _C.CGIStereo = CN()
 _C.CGIStereo.MAX_DISP = 256
+_C.CGIStereo.DISPARITY_MODE = 'regular'
 
 _C.PSMNetRange = CN()
 _C.PSMNetRange.MIN_DISP = 0
