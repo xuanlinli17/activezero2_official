@@ -193,7 +193,7 @@ class CGI_Stereo(nn.Module):
     def __init__(self, maxdisp, disparity_mode='regular'):
         super(CGI_Stereo, self).__init__()
         self.maxdisp = maxdisp 
-        self.disparity_mode = 'regular'
+        self.disparity_mode = disparity_mode
         assert self.disparity_mode in ['regular', 'log_linear']
         if self.disparity_mode == 'log_linear':
             self.min_depth = 0.04
@@ -281,7 +281,7 @@ class CGI_Stereo(nn.Module):
     def to_processed_disparity(self, raw_disp, focal_length, baseline):
         depth = focal_length * baseline / (raw_disp + 1e-8)
         processed_disp = (
-                (np.log(depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
+                (torch.log(depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
                 / (np.log(self.min_depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
         )
         return self.maxdisp * processed_disp
