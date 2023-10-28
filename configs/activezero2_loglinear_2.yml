@@ -28,7 +28,7 @@ CGIStereo:
   LOGLINEAR_DISP_C: -0.02
 OPTIMIZER:
   TYPE: "Adam"
-  LR: 8e-4
+  LR: 6e-4
 LR_SCHEDULER:
   TYPE: 'StepLR'
   StepLR:

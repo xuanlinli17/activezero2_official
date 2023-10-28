@@ -201,6 +201,7 @@ class CGI_Stereo(nn.Module):
             self.loglinear_disp_min_depth = loglinear_disp_min_depth
             self.loglinear_disp_max_depth = loglinear_disp_max_depth
             self.loglinear_disp_c = loglinear_disp_c
+            # self.loglinear_prioritize_near_factor = 2.5 # prioritize losses where the camera is near the object
 
         self.feature = Feature()
         self.feature_up = FeatUp()
@@ -331,6 +332,16 @@ class CGI_Stereo(nn.Module):
             mask_div4 = (disp_gt_div4 <= self.maxdisp - 1) * (disp_gt_div4 >= 0)
         mask_div4.detach()
         
+        """
+        if self.disparity_mode == "log_linear":
+            mul_orig = torch.ones_like(disp_gt)
+            mul_orig[disp_gt > self.maxdisp / 2] = self.loglinear_prioritize_near_factor
+            mul_div4 = torch.ones_like(disp_gt_div4)
+            mul_div4[disp_gt_div4 > self.maxdisp / 2] = self.loglinear_prioritize_near_factor
+            pred_orig, disp_gt = pred_orig * mul_orig, disp_gt * mul_orig
+            pred_div4, disp_gt_div4 = pred_div4 * mul_div4, disp_gt_div4 * mul_div4
+        """
+
         loss_disp = 0.0
         loss_disp += 1.0 * F.smooth_l1_loss(pred_orig[mask], disp_gt[mask], reduction="mean")
         loss_disp += 0.3 * F.smooth_l1_loss(pred_div4[mask_div4], disp_gt_div4[mask_div4], reduction="mean")
