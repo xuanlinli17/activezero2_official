@@ -257,7 +257,7 @@ class CGI_Stereo(nn.Module):
             corr_volume = build_norm_correlation_volume(match_left, match_right, self.maxdisp//4)
         else:
             corr_volume = build_loglinear_correlation_volume(
-                match_left, match_right, self.maxdisp//4,
+                match_left, match_right, self.maxdisp//4, 4,
                 data_batch['focal_length'], data_batch['baseline'], 
                 self.min_depth, self.max_depth, self.disp_loglinear_c
             )

@@ -180,7 +180,7 @@ def build_norm_correlation_volume(refimg_fea, targetimg_fea, maxdisp):
     volume = volume.contiguous()
     return volume
 
-def build_loglinear_correlation_volume(refimg_fea, targetimg_fea, maxdisp,
+def build_loglinear_correlation_volume(refimg_fea, targetimg_fea, maxdisp, raw_disp_downsample,
                                        focal_length, baseline,
                                        min_depth, max_depth, disp_loglinear_c):
     # focal_length: [B], baseline: [B]
@@ -196,7 +196,7 @@ def build_loglinear_correlation_volume(refimg_fea, targetimg_fea, maxdisp,
     )
     raw_disp = focal_length * baseline / (depth + 1e-6) # [maxdisp]
     # align left and right images according to the raw disparity associated with each processed disparity to produce cost volume
-    raw_disp = raw_disp / (W - 1)
+    raw_disp = raw_disp / raw_disp_downsample / (W - 1)
     x_base = torch.linspace(0, 1, W).repeat(B, H, 1).type_as(refimg_fea)
     y_base = torch.linspace(0, 1, H).repeat(B, W, 1).transpose(1, 2).type_as(refimg_fea)
     flow_field = torch.stack(
