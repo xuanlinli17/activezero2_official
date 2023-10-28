@@ -5,5 +5,8 @@ def build_model(cfg):
     model = CGI_Stereo(
         maxdisp=cfg.CGIStereo.MAX_DISP,
         disparity_mode=cfg.CGIStereo.DISPARITY_MODE,
+        loglinear_disp_min_depth=cfg.CGIStereo.LOGLINEAR_DISP_MIN_DEPTH,
+        loglinear_disp_max_depth=cfg.LOGLINEAR_DISP_MAX_DEPTH,
+        loglinear_disp_c=cfg.CGIStereo.LOGLINEAR_DISP_C,
     )
     return model

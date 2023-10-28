@@ -190,15 +190,17 @@ class hourglass_fusion(nn.Module):
 
 
 class CGI_Stereo(nn.Module):
-    def __init__(self, maxdisp, disparity_mode='regular'):
+    def __init__(self, maxdisp, disparity_mode='regular',
+                 loglinear_disp_min_depth=0.04, loglinear_disp_max_depth=3.0,
+                 loglinear_disp_c=0.01):
         super(CGI_Stereo, self).__init__()
         self.maxdisp = maxdisp 
         self.disparity_mode = disparity_mode
         assert self.disparity_mode in ['regular', 'log_linear']
         if self.disparity_mode == 'log_linear':
-            self.min_depth = 0.04
-            self.max_depth = 3.0
-            self.disp_loglinear_c = 0.01
+            self.loglinear_disp_min_depth = loglinear_disp_min_depth
+            self.loglinear_disp_max_depth = loglinear_disp_max_depth
+            self.loglinear_disp_c = loglinear_disp_c
 
         self.feature = Feature()
         self.feature_up = FeatUp()
@@ -259,7 +261,7 @@ class CGI_Stereo(nn.Module):
             corr_volume = build_loglinear_correlation_volume(
                 match_left, match_right, self.maxdisp//4, 4,
                 data_batch['focal_length'], data_batch['baseline'], 
-                self.min_depth, self.max_depth, self.disp_loglinear_c
+                self.loglinear_disp_min_depth, self.loglinear_disp_max_depth, self.loglinear_disp_c
             )
         corr_volume = self.corr_stem(corr_volume)
         feat_volume = self.semantic(features_left[0]).unsqueeze(2)
@@ -289,8 +291,8 @@ class CGI_Stereo(nn.Module):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
         depth = (focal_length * baseline)[:, None, None] / (raw_disp + 1e-8)
         disp_t = (
-                (torch.log(depth + self.disp_loglinear_c) - np.log(self.min_depth + self.disp_loglinear_c))
-                / (np.log(self.max_depth + self.disp_loglinear_c) - np.log(self.min_depth + self.disp_loglinear_c))
+                (torch.log(depth + self.loglinear_disp_c) - np.log(self.loglinear_disp_min_depth + self.loglinear_disp_c))
+                / (np.log(self.loglinear_disp_max_depth + self.loglinear_disp_c) - np.log(self.loglinear_disp_min_depth + self.loglinear_disp_c))
         ) # a valid range of disp_t is [1/maxdisp, 1]
         return self.maxdisp - self.maxdisp * disp_t
 
@@ -298,9 +300,9 @@ class CGI_Stereo(nn.Module):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
         disp_t = (self.maxdisp - processed_disp) / self.maxdisp
         depth = (
-            ((self.min_depth + self.disp_loglinear_c) ** (1 - disp_t)) 
-            * ((self.max_depth + self.disp_loglinear_c) ** disp_t) 
-            - self.disp_loglinear_c
+            ((self.loglinear_disp_min_depth + self.loglinear_disp_c) ** (1 - disp_t)) 
+            * ((self.loglinear_disp_max_depth + self.loglinear_disp_c) ** disp_t) 
+            - self.loglinear_disp_c
         )
         return (focal_length * baseline)[:, None, None] / (depth + 1e-8)
         
@@ -343,7 +345,7 @@ class CGI_Stereo(nn.Module):
             if self.disparity_mode == 'regular':
                 mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
             else:
-                mask = (disp_gt <= self.max_depth) * (disp_gt > self.min_depth)
+                mask = (disp_gt <= self.loglinear_disp_max_depth) * (disp_gt > self.loglinear_disp_min_depth)
             mask.detach()
         else:
             mask = None
