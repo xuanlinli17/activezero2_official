@@ -289,17 +289,17 @@ class CGI_Stereo(nn.Module):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
         depth = (focal_length * baseline)[:, None, None] / (raw_disp + 1e-8)
         disp_t = (
-                (torch.log(depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
-                / (np.log(self.min_depth + self.disp_loglinear_c) - np.log(self.max_depth + self.disp_loglinear_c))
+                (torch.log(depth + self.disp_loglinear_c) - np.log(self.min_depth + self.disp_loglinear_c))
+                / (np.log(self.max_depth + self.disp_loglinear_c) - np.log(self.min_depth + self.disp_loglinear_c))
         ) # a valid range of disp_t is [1/maxdisp, 1]
-        return self.maxdisp * disp_t
+        return self.maxdisp - self.maxdisp * disp_t
 
     def to_raw_disparity(self, processed_disp, focal_length, baseline):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
-        disp_t = processed_disp / self.maxdisp
+        disp_t = (self.maxdisp - processed_disp) / self.maxdisp
         depth = (
-            ((self.min_depth + self.disp_loglinear_c) ** disp_t) 
-            * ((self.max_depth + self.disp_loglinear_c) ** (1 - disp_t)) 
+            ((self.min_depth + self.disp_loglinear_c) ** (1 - disp_t)) 
+            * ((self.max_depth + self.disp_loglinear_c) ** disp_t) 
             - self.disp_loglinear_c
         )
         return (focal_length * baseline)[:, None, None] / (depth + 1e-8)
