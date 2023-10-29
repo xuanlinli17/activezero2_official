@@ -15,7 +15,7 @@ import json
 CUR_DIR = os.path.dirname(__file__)
 REPO_ROOT = os.path.abspath(osp.join(osp.dirname(__file__), ".."))
 sys.path.insert(0, REPO_ROOT)
-from data_rendering.render_scene import render_gt_depth_label, render_scene, SCENE_DIR
+from data_rendering.render_scene import render_scene, SCENE_DIR
 from data_rendering.utils.render_utils import load_pickle, timeout
 
 if __name__ == "__main__":
@@ -95,6 +95,9 @@ if __name__ == "__main__":
     # build scene
     sim = sapien.Engine()
     sim.set_log_level("warning")
+    sapien.render_config.camera_shader_dir = "rt"
+    sapien.render_config.viewer_shader_dir = "rt"
+    """
     sapien.KuafuRenderer.set_log_level("warning")
 
     render_config = sapien.KuafuConfig()
@@ -104,6 +107,13 @@ if __name__ == "__main__":
     render_config.max_bounces = 8
 
     renderer = sapien.KuafuRenderer(render_config)
+    """
+    sapien.render_config.use_viewer = False
+    sapien.render_config.rt_use_denoiser = False
+    # sapien.render_config.rt_samples_per_pixel = 256
+    sapien.render_config.spp = spp
+    sapien.render_config.max_bounces = 8
+    renderer = sapien.SapienRenderer()
     sim.set_renderer(renderer)
 
     for sc in sub_scene_list:
@@ -163,35 +173,5 @@ if __name__ == "__main__":
                 rand_table=args.rand_table,
                 rand_env=args.rand_env,
             )
-
-    renderer = None
-    sim = None
-
-    sim_vk = sapien.Engine()
-    sim_vk.set_log_level("warning")
-
-    renderer = sapien.VulkanRenderer(offscreen_only=True)
-    renderer.set_log_level("warning")
-    sim_vk.set_renderer(renderer)
-
-    for sc in sub_scene_list:
-        if osp.exists(osp.join(data_root, f"{sc}-{num_view - 1}/depthR_colored.png")):
-            logger.info(f"Skip scene {sc} gt depth and seg")
-            continue
-        logger.info(f"Generating scene {sc} gt depth and seg")
-        render_gt_depth_label(
-            sim=sim_vk,
-            renderer=renderer,
-            scene_id=sc,
-            repo_root=repo_root,
-            target_root=data_root,
-            camera_type=args.camera_type,
-            camera_resolution=args.camera_resolution,
-            spp=spp,
-            num_views=num_view,
-            rand_pattern=args.rand_pattern,
-            fixed_angle=args.fixed_angle,
-            primitives=args.primitives,
-            primitives_v2=args.primitives_v2,
-        )
+    
     exit(0)

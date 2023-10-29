@@ -310,6 +310,7 @@ class MessyTableDataset(Dataset):
 
         if self.normal_name:
             data_dict["img_normal_l"] = torch.from_numpy(img_normal_l).float().permute(2, 0, 1)
+            data_dict["img_normal_l"] = data_dict["img_normal_l"] / (data_dict["img_normal_l"].norm(dim=0) + 1e-8)
         if self.normal_conf_name:
             data_dict["img_normal_weight"] = torch.from_numpy(img_normal_weight).float()
         if self.label_name:

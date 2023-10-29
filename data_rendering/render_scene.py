@@ -451,14 +451,50 @@ def render_scene(
             p = cam_rgb.get_color_rgba()
             plt.imsave(os.path.join(folder_path, f"{spp:04d}_rgb_kuafu.png"), p)
 
+            pos = cam_rgb.get_float_texture("Position")
+            depth = -pos[..., 2]
+            depth = (np.clip(depth, 0, 65) * 1000.0).astype(np.uint16)
+            cv2.imwrite(os.path.join(folder_path, f"depth.png"), depth)
+            vis_depth = visualize_depth(depth)
+            cv2.imwrite(os.path.join(folder_path, f"depth_colored.png"), vis_depth)
+            gl2cv = np.array([[1, 0, 0], [0, -1,  0], [0, 0, -1]], dtype=np.float32)
+            normal = cam_rgb.get_float_texture("Normal")[..., :3] # Normal under GL camera frame
+            normal = np.einsum('xyj,ij->xyi', normal, gl2cv)
+            normal = ((normal + 1) * 1000.0).astype(np.uint16)
+            cv2.imwrite(os.path.join(folder_path, f"normal.png"), normal)
+
             # Render multi-view RGB camera
             cam_irl.take_picture()
             p = cam_irl.get_color_rgba()
             plt.imsave(os.path.join(folder_path, f"{spp:04d}_rgbL_kuafu.png"), p)
 
+            pos = cam_irl.get_float_texture("Position")
+            depth = -pos[..., 2]
+            depth = (np.clip(depth, 0, 65) * 1000.0).astype(np.uint16)
+            cv2.imwrite(os.path.join(folder_path, f"depthL.png"), depth)
+            vis_depth = visualize_depth(depth)
+            cv2.imwrite(os.path.join(folder_path, f"depthL_colored.png"), vis_depth)
+            normal = cam_irl.get_float_texture("Normal")[..., :3]
+            normal = np.einsum('xyj,ij->xyi', normal, gl2cv)
+            normal = ((normal + 1) * 1000.0).astype(np.uint16)
+            cv2.imwrite(os.path.join(folder_path, f"normalL.png"), normal)
+
+
             cam_irr.take_picture()
             p = cam_irr.get_color_rgba()
             plt.imsave(os.path.join(folder_path, f"{spp:04d}_rgbR_kuafu.png"), p)
+
+            pos = cam_irr.get_float_texture("Position")
+            depth = -pos[..., 2]
+            depth = (np.clip(depth, 0, 65) * 1000.0).astype(np.uint16)
+            cv2.imwrite(os.path.join(folder_path, f"depthR.png"), depth)
+            vis_depth = visualize_depth(depth)
+            cv2.imwrite(os.path.join(folder_path, f"depthR_colored.png"), vis_depth)
+            normal = cam_irr.get_float_texture("Normal")[..., :3]
+            normal = np.einsum('xyj,ij->xyi', normal, gl2cv)
+            normal = ((normal + 1) * 1000.0).astype(np.uint16)
+            cv2.imwrite(os.path.join(folder_path, f"normalR.png"), normal)
+
             plt.close("all")
 
             lights_off()
@@ -500,6 +536,7 @@ def render_scene(
             no_irl, no_irr = p_l, p_r
             cv2.imwrite(os.path.join(folder_path, f"{spp:04d}_irL_kuafu_half_no_ir.png"), no_irl)
             cv2.imwrite(os.path.join(folder_path, f"{spp:04d}_irR_kuafu_half_no_ir.png"), no_irr)
+
         else:
             logger.info(f"skip {folder_path} rendering")
 
@@ -542,254 +579,6 @@ def render_scene(
     scene = None
 
 
-def render_gt_depth_label(
-    sim: sapien.Engine,
-    renderer: sapien.VulkanRenderer,
-    scene_id,
-    repo_root,
-    target_root,
-    camera_type,
-    camera_resolution,
-    spp,
-    num_views,
-    rand_pattern,
-    fixed_angle,
-    primitives,
-    primitives_v2,
-):
-    materials_root = os.path.join(repo_root, "data_rendering/materials")
-
-    # build scene
-    # sim = sapien.Engine()
-    # sim.set_log_level("err")
-    #
-    # renderer = sapien.VulkanRenderer(offscreen_only=True)
-    # renderer.set_log_level("err")
-    # sim.set_renderer(renderer)
-
-    scene_config = sapien.SceneConfig()
-    scene_config.solver_iterations = 25
-    scene_config.solver_velocity_iterations = 2
-    scene_config.enable_pcm = False
-    scene_config.default_restitution = 0
-    scene_config.default_dynamic_friction = 0.5
-    scene_config.default_static_friction = 0.5
-    scene = sim.create_scene(scene_config)
-
-    ground_material = renderer.create_material()
-    ground_material.base_color = np.array([10, 10, 10, 256]) / 256
-    ground_material.specular = 0.5
-    scene.add_ground(-2.0, render_material=ground_material)
-    scene.set_timestep(1 / 240)
-
-    # Add camera
-    if camera_type == 'd415':
-        default_resolution = (1920, 1080)
-        cam_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_base.txt")) # intrinsic under default resolution
-        cam_ir_intrinsic_base = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_base.txt"))
-        cam_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_intrinsic_hand.txt"))
-        cam_ir_intrinsic_hand = np.loadtxt(os.path.join(materials_root, "cam_ir_intrinsic_hand.txt"))
-        cam_irL_rel_extrinsic_base = np.loadtxt(
-            os.path.join(materials_root, "cam_irL_rel_extrinsic_base.txt")
-        )  # camL -> cam0
-        cam_irR_rel_extrinsic_base = np.loadtxt(
-            os.path.join(materials_root, "cam_irR_rel_extrinsic_base.txt")
-        )  # camR -> cam0
-        cam_irL_rel_extrinsic_hand = np.loadtxt(
-            os.path.join(materials_root, "cam_irL_rel_extrinsic_hand.txt")
-        )  # camL -> cam0
-        cam_irR_rel_extrinsic_hand = np.loadtxt(
-            os.path.join(materials_root, "cam_irR_rel_extrinsic_hand.txt")
-        )  # camR -> cam0
-    elif camera_type == 'd435':
-        default_resolution = (848, 480)
-        cam_intrinsic_base = np.array([[605.12158203125,     0., 424.5927734375], [0.,    604.905517578125, 236.668975830078], [0, 0, 1]]) # intrinsic under default resolution
-        cam_ir_intrinsic_base = np.array([[430.139801025391,   0., 425.162841796875], [0.,   430.139801025391, 235.276519775391], [0, 0, 1]])
-        cam_intrinsic_hand = np.array(cam_intrinsic_base)
-        cam_ir_intrinsic_hand = np.array(cam_intrinsic_base)
-        cam_irL_rel_extrinsic_base = np.array([[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, 0.00015650546993128955],
-                                              [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.014897654764354229],
-                                              [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, -1.1531494237715378e-05],
-                                              [0.0, 0.0, 0.0, 1.0]])
-        cam_irR_rel_extrinsic_base = np.array([[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, -0.0003285693528596312],
-                                              [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.06504792720079422],
-                                              [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, 0.0006658887723460793],
-                                              [0.0, 0.0, 0.0, 1.0]])
-        cam_irL_rel_extrinsic_hand = np.array(cam_irL_rel_extrinsic_base)
-        cam_irR_rel_extrinsic_hand = np.array(cam_irR_rel_extrinsic_base)
-    else:
-        raise NotImplementedError()
-
-    builder = scene.create_actor_builder()
-    cam_mount = builder.build_kinematic(name="real_camera")
-    if fixed_angle:
-        # reproduce IJRR
-        base_cam_rgb, base_cam_irl, base_cam_irr = create_realsense(
-            camera_type, "real_camera_base", default_resolution, camera_resolution,
-            cam_mount, scene, cam_intrinsic_base, cam_ir_intrinsic_base
-        )
-
-    hand_cam_rgb, hand_cam_irl, hand_cam_irr = create_realsense(
-        camera_type, "real_camera_hand", default_resolution, camera_resolution,
-        cam_mount, scene, cam_intrinsic_hand, cam_ir_intrinsic_hand
-    )
-
-    table_pose_np = np.loadtxt(os.path.join(repo_root, "data_rendering/materials/optical_table/pose.txt"))
-    table_pose = sapien.Pose(table_pose_np[:3], table_pose_np[3:])
-
-    load_table_vk(scene, os.path.join(repo_root, "data_rendering/materials/optical_table"), table_pose)
-    # Add lights
-    scene.set_ambient_light([0.5, 0.5, 0.5])
-
-    # set scene layout
-    if primitives:
-        # Load primitives from saved meta.pkl
-        main_meta_path = os.path.join(target_root, f"{scene_id}-0", "meta.pkl")
-        main_meta_info = load_pickle(main_meta_path)
-        primitives_info = main_meta_info["primitives"]
-        num_asset = len(primitives_info.keys())
-        for i in range(num_asset):
-            primitive = primitives_info[f"obj_{i}"]
-            load_random_primitives_from_info(scene, renderer=renderer, idx=i, primitive_info=primitive)
-    elif primitives_v2:
-        # Load primitives from saved meta.pkl
-        main_meta_path = os.path.join(target_root, f"{scene_id}-0", "meta.pkl")
-        main_meta_info = load_pickle(main_meta_path)
-        primitives_info = main_meta_info["primitives"]
-        num_asset = len(primitives_info.keys())
-        for i in range(num_asset):
-            primitive = primitives_info[f"obj_{i}"]
-            load_random_primitives_from_info(scene, renderer=renderer, idx=i, primitive_info=primitive)
-
-    else:
-        if not os.path.exists(os.path.join(SCENE_DIR, f"{scene_id}/input.json")):
-            logger.warning(f"{SCENE_DIR}/{scene_id}/input.json not exists.")
-            return
-        world_js = json.load(open(os.path.join(SCENE_DIR, f"{scene_id}/input.json"), "r"))
-        assets = world_js.keys()
-        actors = []
-        for obj_name in assets:
-            ac = load_obj_vk(
-                scene,
-                obj_name,
-                pose=sapien.Pose.from_transformation_matrix(world_js[obj_name]),
-                is_kinematic=True,
-            )
-            actors.append(ac)
-
-        # Mapping id to name
-        seg_id_to_sapien_name = {actor.get_id(): actor.get_name() for actor in scene.get_all_actors()}
-        seg_id_to_obj_name = {actor.get_id(): asset for actor, asset in zip(actors, assets)}
-
-    for view_id in range(num_views):
-        folder_path = os.path.join(target_root, f"{scene_id}-{view_id}")
-
-        # Load meta info
-        meta_info = load_pickle(os.path.join(folder_path, "meta.pkl"))
-
-        cam_extrinsic = meta_info["extrinsic"]
-        cam_mount.set_pose(cv2ex2pose(cam_extrinsic))
-
-        # Obtain main-view RGB depth
-        scene.update_render()
-        if view_id == 0 and fixed_angle:
-            # reproduce IJRR
-            cam_rgb = base_cam_rgb
-            cam_irl = base_cam_irl
-            cam_irr = base_cam_irr
-        else:
-            cam_rgb = hand_cam_rgb
-            cam_irl = hand_cam_irl
-            cam_irr = hand_cam_irr
-        cam_rgb.take_picture()
-        p = cam_rgb.get_color_rgba()
-        plt.imsave(os.path.join(folder_path, f"0000_rgb_vulkan.png"), p)
-        pos = cam_rgb.get_float_texture("Position")
-        depth = -pos[..., 2]
-        depth = (depth * 1000.0).astype(np.uint16)
-        cv2.imwrite(os.path.join(folder_path, f"depth.png"), depth)
-        vis_depth = visualize_depth(depth)
-        cv2.imwrite(os.path.join(folder_path, f"depth_colored.png"), vis_depth)
-
-        # Obtain multi-vierw IR depth
-        # scene.update_render()
-        cam_irl.take_picture()
-        pos = cam_irl.get_float_texture("Position")
-        depth = -pos[..., 2]
-        depth = (depth * 1000.0).astype(np.uint16)
-        cv2.imwrite(os.path.join(folder_path, f"depthL.png"), depth)
-        vis_depth = visualize_depth(depth)
-        cv2.imwrite(os.path.join(folder_path, f"depthL_colored.png"), vis_depth)
-
-        # scene.update_render()
-        cam_irr.take_picture()
-        pos = cam_irr.get_float_texture("Position")
-        depth = -pos[..., 2]
-        depth = (depth * 1000.0).astype(np.uint16)
-        cv2.imwrite(os.path.join(folder_path, f"depthR.png"), depth)
-        vis_depth = visualize_depth(depth)
-        cv2.imwrite(os.path.join(folder_path, f"depthR_colored.png"), vis_depth)
-
-        if not (primitives or primitives_v2):
-            # render label image
-            obj_segmentation = cam_rgb.get_uint32_texture("Segmentation")[..., 1]
-
-            assert not np.any(obj_segmentation > 255)
-
-            # Mapping seg_id to obj_id, as a semantic label image.
-            seg_id_to_fused_name = {k: seg_id_to_obj_name.get(k, v) for k, v in seg_id_to_sapien_name.items()}
-            seg_id_to_obj_id = get_seg_id_to_obj_id(seg_id_to_fused_name)
-            obj_ids = np.unique(seg_id_to_obj_id[seg_id_to_obj_id < NUM_OBJECTS])
-
-            # Semantic labels
-            sem_labels = (seg_id_to_obj_id[obj_segmentation]).astype("uint8")
-            sem_image = Image.fromarray(sem_labels)
-            sem_image.save(os.path.join(folder_path, "label.png"))
-
-            sem_labels_with_color = COLOR_PALETTE[sem_labels]
-            sem_image_with_color = Image.fromarray(sem_labels_with_color.astype("uint8"))
-            sem_image_with_color.save(os.path.join(folder_path, "label2.png"))
-
-            obj_segmentation = cam_irl.get_uint32_texture("Segmentation")[..., 1]
-
-            assert not np.any(obj_segmentation > 255)
-
-            # Mapping seg_id to obj_id, as a semantic label image.
-            seg_id_to_fused_name = {k: seg_id_to_obj_name.get(k, v) for k, v in seg_id_to_sapien_name.items()}
-            seg_id_to_obj_id = get_seg_id_to_obj_id(seg_id_to_fused_name)
-            obj_ids = np.unique(seg_id_to_obj_id[seg_id_to_obj_id < NUM_OBJECTS])
-
-            # Semantic labels
-            sem_labels = (seg_id_to_obj_id[obj_segmentation]).astype("uint8")
-            sem_image = Image.fromarray(sem_labels)
-            sem_image.save(os.path.join(folder_path, "labelL.png"))
-
-            sem_labels_with_color = COLOR_PALETTE[sem_labels]
-            sem_image_with_color = Image.fromarray(sem_labels_with_color.astype("uint8"))
-            sem_image_with_color.save(os.path.join(folder_path, "labelL2.png"))
-
-            obj_segmentation = cam_irr.get_uint32_texture("Segmentation")[..., 1]
-
-            assert not np.any(obj_segmentation > 255)
-
-            # Mapping seg_id to obj_id, as a semantic label image.
-            seg_id_to_fused_name = {k: seg_id_to_obj_name.get(k, v) for k, v in seg_id_to_sapien_name.items()}
-            seg_id_to_obj_id = get_seg_id_to_obj_id(seg_id_to_fused_name)
-            obj_ids = np.unique(seg_id_to_obj_id[seg_id_to_obj_id < NUM_OBJECTS])
-
-            # Semantic labels
-            sem_labels = (seg_id_to_obj_id[obj_segmentation]).astype("uint8")
-            sem_image = Image.fromarray(sem_labels)
-            sem_image.save(os.path.join(folder_path, "labelR.png"))
-
-            sem_labels_with_color = COLOR_PALETTE[sem_labels]
-            sem_image_with_color = Image.fromarray(sem_labels_with_color.astype("uint8"))
-            sem_image_with_color.save(os.path.join(folder_path, "labelR2.png"))
-
-        logger.info(f"finish {folder_path} gt depth and seg")
-    scene = None
-
-
 if __name__ == "__main__":
     import argparse
 
@@ -807,17 +596,6 @@ if __name__ == "__main__":
 
     assert not (args.primitives and args.primitives_v2), "primitives and v2 cannot be True in one run"
     render_scene(
-        args.scene,
-        repo_root=args.repo_root,
-        target_root=args.target_root,
-        spp=args.spp,
-        num_views=args.nv,
-        rand_pattern=args.rand_pattern,
-        fixed_angle=args.fixed_angle,
-        primitives=args.primitives,
-        primitives_v2=args.primitives_v2,
-    )
-    render_gt_depth_label(
         args.scene,
         repo_root=args.repo_root,
         target_root=args.target_root,

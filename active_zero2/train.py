@@ -345,6 +345,11 @@ if __name__ == "__main__":
                 sim_disp *= cfg.LOSS.SIM_DISP.WEIGHT
                 loss += sim_disp
                 loss_dict["loss_sim_disp"] = sim_disp
+            if cfg.LOSS.SIM_NORMAL > 0:
+                normal_loss = model.compute_normal_loss(data_batch, pred_dict)
+                normal_loss *= cfg.LOSS.SIM_NORMAL
+                loss += normal_loss
+                loss_dict["loss_sim_norm"] = normal_loss
 
             if cfg.MODEL_TYPE == "PSMNetGrad":
                 if cfg.LOSS.SIM_GRAD > 0:
@@ -383,12 +388,7 @@ if __name__ == "__main__":
                     loss_dict["edge_prec"] = prec
                     loss_dict["edge_recall"] = recall
 
-                if cfg.LOSS.SIM_NORMAL > 0:
-                    normal_loss = model.compute_normal_loss(data_batch, pred_dict)
-                    normal_loss *= cfg.LOSS.SIM_NORMAL
-                    loss += normal_loss
-                    loss_dict["loss_sim_norm"] = normal_loss
-                elif is_distributed:
+                if cfg.LOSS.SIM_NORMAL <= 0 and is_distributed:
                     loss += pred_dict["normal3"].mean() * 0.0
 
             loss_dict["loss_sim_total"] = loss

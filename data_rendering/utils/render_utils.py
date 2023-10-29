@@ -208,16 +208,16 @@ def create_realsense(camera_type: str, camera_name: str, default_resolution: tup
 
     camera0 = scene.add_mounted_camera(f"{name}", camera_mount, tran_pose0, width, height, 0, fov, 0.001, 100)
     camera0.set_perspective_parameters(
-        0.1, 100.0, camera_k[0, 0], camera_k[1, 1], camera_k[0, 2], camera_k[1, 2], camera_k[0, 1]
+        0.01, 100.0, camera_k[0, 0], camera_k[1, 1], camera_k[0, 2], camera_k[1, 2], camera_k[0, 1]
     )
 
     camera1 = scene.add_mounted_camera(f"{name}_left", camera_mount, tran_pose1, width, height, 0, fov, 0.001, 100)
     camera1.set_perspective_parameters(
-        0.1, 100.0, camera_ir_k[0, 0], camera_ir_k[1, 1], camera_ir_k[0, 2], camera_ir_k[1, 2], camera_ir_k[0, 1]
+        0.01, 100.0, camera_ir_k[0, 0], camera_ir_k[1, 1], camera_ir_k[0, 2], camera_ir_k[1, 2], camera_ir_k[0, 1]
     )
     camera2 = scene.add_mounted_camera(f"{name}_right", camera_mount, tran_pose2, width, height, 0, fov, 0.001, 100)
     camera2.set_perspective_parameters(
-        0.1, 100.0, camera_ir_k[0, 0], camera_ir_k[1, 1], camera_ir_k[0, 2], camera_ir_k[1, 2], camera_ir_k[0, 1]
+        0.01, 100.0, camera_ir_k[0, 0], camera_ir_k[1, 1], camera_ir_k[0, 2], camera_ir_k[1, 2], camera_ir_k[0, 1]
     )
 
     return [camera0, camera1, camera2]
