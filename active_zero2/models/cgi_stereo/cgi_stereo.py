@@ -187,12 +187,67 @@ class hourglass_fusion(nn.Module):
         conv = self.conv1_up(conv1)
 
         return conv
+    
+class normal_predictor(nn.Module):
+    def __init__(self, in_channels, n_disp):
+        super(normal_predictor, self).__init__()
+
+        self.conv1 = nn.Sequential(BasicConv(in_channels, in_channels*2, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=2, dilation=1),
+                                   BasicConv(in_channels*2, in_channels*2, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=1, dilation=1))
+                                    
+        self.conv2 = nn.Sequential(BasicConv(in_channels*2, in_channels*4, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=2, dilation=1),
+                                   BasicConv(in_channels*4, in_channels*4, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=1, dilation=1))    
+
+        self.conv2_up = BasicConv(in_channels*4, in_channels*2, deconv=True, is_3d=True, bn=True,
+                                  relu=True, kernel_size=(4, 4, 4), padding=(1, 1, 1), stride=(2, 2, 2))
+
+        self.conv1_up = BasicConv(in_channels*2, in_channels, deconv=True, is_3d=True, bn=False,
+                                  relu=False, kernel_size=(4, 4, 4), padding=(1, 1, 1), stride=(2, 2, 2))
+
+        self.agg_1 = nn.Sequential(BasicConv(in_channels*4, in_channels*2, is_3d=True, kernel_size=1, padding=0, stride=1),
+                                   BasicConv(in_channels*2, in_channels*2, is_3d=True, kernel_size=3, padding=1, stride=1),
+                                   BasicConv(in_channels*2, in_channels*2, is_3d=True, kernel_size=3, padding=1, stride=1))
+
+        self.CGF_16 = Context_Geometry_Fusion(in_channels*4, 192)
+        self.CGF_8 = Context_Geometry_Fusion(in_channels*2, 64)
+        
+        self.normal_head = nn.Sequential(
+            BasicConv(in_channels * n_disp, in_channels * n_disp // 4, 
+                      deconv=True, is_3d=False, kernel_size=3, padding=1, stride=1),
+            nn.ConvTranspose2d(in_channels * n_disp // 4, 3, kernel_size=3, padding=1, stride=1, bias=False)            
+        )
+
+    def forward(self, x, imgs):
+        conv1 = self.conv1(x)
+        conv2 = self.conv2(conv1)
+
+        conv2 = self.CGF_16(conv2, imgs[2])
+        conv2_up = self.conv2_up(conv2)
+        if conv2_up.shape[-2:] != conv1.shape[-2:]:
+            conv2_up = F.interpolate(conv2_up, size=conv1.shape[-3:], mode='trilinear', align_corners=True)
+
+        conv1 = torch.cat((conv2_up, conv1), dim=1)
+        conv1 = self.agg_1(conv1)
+
+        conv1 = self.CGF_8(conv1, imgs[1])
+        conv = self.conv1_up(conv1)
+
+        B, C, D, H_div4, W_div4 = conv.shape
+        conv = conv.reshape(B, C*D, H_div4, W_div4)
+        
+        normal = self.normal_head(conv) # [B, 3, H, W]
+        normal = normal / (normal.norm(dim=1, keepdim=True) + 1e-8)
+        return normal
 
 
 class CGI_Stereo(nn.Module):
     def __init__(self, maxdisp, disparity_mode='regular',
-                 loglinear_disp_min_depth=0.04, loglinear_disp_max_depth=3.0,
-                 loglinear_disp_c=0.01):
+                 loglinear_disp_min_depth=0.04, loglinear_disp_max_depth=3.0, loglinear_disp_c=0.01,
+                 predict_normal=False):
         super(CGI_Stereo, self).__init__()
         self.maxdisp = maxdisp 
         self.disparity_mode = disparity_mode
@@ -234,8 +289,17 @@ class CGI_Stereo(nn.Module):
         self.agg = BasicConv(8, 8, is_3d=True, kernel_size=(1,5,5), padding=(0,2,2), stride=1)
         self.hourglass_fusion = hourglass_fusion(8)
         self.corr_stem = BasicConv(1, 8, is_3d=True, kernel_size=3, stride=1, padding=1)
+        
+        self.predict_normal = predict_normal
+        if self.predict_normal:
+            self.normal_predictor = normal_predictor(8, self.maxdisp // 4)
+        else:
+            self.normal_predictor = None
 
-    def forward(self, data_batch):
+    def forward(self, data_batch, predict_normal=None):
+        if predict_normal is None:
+            predict_normal = self.predict_normal
+        
         left, right = data_batch['img_l'], data_batch['img_r']
         if left.shape[1] == 1:
             left = left.tile((1,3,1,1))
@@ -286,6 +350,10 @@ class CGI_Stereo(nn.Module):
             "pred_orig": pred_up * 4, # [bs, H, W]
             "pred_div4": pred.squeeze(1) * 4, # [bs, H/4, W/4]
         }
+        
+        if predict_normal:
+            pred_dict["normal"] = self.normal_predictor(volume, features_left)
+        
         return pred_dict
         
     def to_processed_disparity(self, raw_disp, focal_length, baseline):
@@ -356,7 +424,8 @@ class CGI_Stereo(nn.Module):
             if self.disparity_mode == 'regular':
                 mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
             else:
-                mask = (disp_gt <= self.loglinear_disp_max_depth) * (disp_gt > self.loglinear_disp_min_depth)
+                disp_gt_processed = self.to_processed_disparity(disp_gt, data_batch["focal_length"], data_batch["baseline"])
+                mask = (disp_gt_processed <= self.maxdisp - 1) * (disp_gt_processed >= 0)
             mask.detach()
         else:
             mask = None
@@ -388,3 +457,27 @@ class CGI_Stereo(nn.Module):
                         ps=patch_size,
                     )
             return loss_reproj
+
+    def compute_normal_loss(self, data_batch, pred_dict):
+        normal_gt = data_batch["img_normal_l"]
+        normal_pred = pred_dict["normal"] # [B, 3, H, W]
+        cos = F.cosine_similarity(normal_gt, normal_pred, dim=1, eps=1e-6)
+        loss_cos = 1.0 - cos
+        if "img_disp_l" in data_batch:
+            disp_gt = data_batch["img_disp_l"]
+            if self.disparity_mode == 'regular':
+                mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
+            else:
+                disp_gt_processed = self.to_processed_disparity(disp_gt, data_batch["focal_length"], data_batch["baseline"])
+                mask = (disp_gt_processed <= self.maxdisp - 1) * (disp_gt_processed >= 0)
+            mask = mask.squeeze(1) # [B, H, W]
+            mask.detach()
+        else:
+            mask = torch.ones_like(loss_cos)
+
+        if "img_normal_weight" in data_batch:
+            img_normal_weight = data_batch["img_normal_weight"]  # (B, H, W)
+            loss_cos = (loss_cos * img_normal_weight * mask).sum() / ((img_normal_weight * mask).sum() + 1e-8)
+        else:
+            loss_cos = (loss_cos * mask).sum() / (mask.sum() + 1e-8)
+        return loss_cos
