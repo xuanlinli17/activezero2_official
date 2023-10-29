@@ -217,8 +217,8 @@ class normal_predictor(nn.Module):
         
         self.normal_head = nn.Sequential(
             BasicConv(in_channels * n_disp, in_channels * n_disp // 4, 
-                      deconv=True, is_3d=False, kernel_size=3, padding=1, stride=1),
-            nn.ConvTranspose2d(in_channels * n_disp // 4, 3, kernel_size=3, padding=1, stride=1, bias=False)            
+                      deconv=True, is_3d=False, kernel_size=4, padding=1, stride=2),
+            nn.ConvTranspose2d(in_channels * n_disp // 4, 3, kernel_size=4, padding=1, stride=2, bias=False)            
         )
 
     def forward(self, x, imgs):
