@@ -1,8 +1,8 @@
 DATA:
   TRAIN:
     SIM:
-      ROOT_DIR: "/xuanlin-slow/modified-messy-table-dataset/data/"
-      SPLIT_FILE: "/xuanlin-slow/modified-messy-table-dataset/train.txt"
+      ROOT_DIR: "/xuanlin-slow-southeast/modified-messy-table-dataset/data/"
+      SPLIT_FILE: "/xuanlin-slow-southeast/modified-messy-table-dataset/train.txt"
       META_NAME: "meta.pkl"
       DEPTH_NAME: "depthL.png"
       LEFT_NAME: "0128_irL_kuafu_half.png"
@@ -12,8 +12,8 @@ DATA:
       IMG_PREPROCESS_RESIZE: (424, 240)
   VAL:
     SIM:
-      ROOT_DIR: "/xuanlin-slow/modified-messy-table-dataset-test/data/"
-      SPLIT_FILE: "/xuanlin-slow/modified-messy-table-dataset-test/test.txt"
+      ROOT_DIR: "/xuanlin-slow-southeast/modified-messy-table-dataset-test/data/"
+      SPLIT_FILE: "/xuanlin-slow-southeast/modified-messy-table-dataset-test/test.txt"
       META_NAME: "meta.pkl"
       DEPTH_NAME: "depthL.png"
       LEFT_NAME: "0128_irL_kuafu_half.png"

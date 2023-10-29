@@ -7,6 +7,7 @@ DATA:
       DEPTH_NAME: "depthL.png"
       LEFT_NAME: "0128_irL_kuafu_half.png"
       RIGHT_NAME: "0128_irR_kuafu_half.png"
+      NORMAL_NAME: "normalL.png"
       HEIGHT: 240
       WIDTH: 424
       IMG_PREPROCESS_RESIZE: (424, 240)
@@ -18,6 +19,7 @@ DATA:
       DEPTH_NAME: "depthL.png"
       LEFT_NAME: "0128_irL_kuafu_half.png"
       RIGHT_NAME: "0128_irR_kuafu_half.png"
+      NORMAL_NAME: "normalL.png"
       HEIGHT: 240
       WIDTH: 424
       IMG_PREPROCESS_RESIZE: (424, 240)
@@ -26,7 +28,7 @@ CGIStereo:
   MAX_DISP: 384
   DISPARITY_MODE: "log_linear"
   LOGLINEAR_DISP_C: -0.02
-  PREDICT_NORMAL: False
+  PREDICT_NORMAL: True
 OPTIMIZER:
   TYPE: "Adam"
   LR: 6e-4
@@ -54,7 +56,7 @@ LOSS:
     WEIGHT: 0.0
   SIM_DISP:
     WEIGHT: 1.0
-  SIM_NORMAL: 0.0
+  SIM_NORMAL: 1.0
   SIM_GRAD: 0.0
   REAL_NORMAL: 0.0
   REAL_GRAD: 0.0

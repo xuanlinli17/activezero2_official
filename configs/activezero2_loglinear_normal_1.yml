@@ -7,6 +7,7 @@ DATA:
       DEPTH_NAME: "depthL.png"
       LEFT_NAME: "0128_irL_kuafu_half.png"
       RIGHT_NAME: "0128_irR_kuafu_half.png"
+      NORMAL_NAME: "normalL.png"
       HEIGHT: 240
       WIDTH: 424
       IMG_PREPROCESS_RESIZE: (424, 240)
@@ -18,25 +19,26 @@ DATA:
       DEPTH_NAME: "depthL.png"
       LEFT_NAME: "0128_irL_kuafu_half.png"
       RIGHT_NAME: "0128_irR_kuafu_half.png"
+      NORMAL_NAME: "normalL.png"
       HEIGHT: 240
       WIDTH: 424
       IMG_PREPROCESS_RESIZE: (424, 240)
 MODEL_TYPE: "CGIStereo"
 CGIStereo:
-  MAX_DISP: 384
+  MAX_DISP: 256
   DISPARITY_MODE: "log_linear"
-  LOGLINEAR_DISP_C: -0.02
-  PREDICT_NORMAL: False
+  LOGLINEAR_DISP_C: 0.01
+  PREDICT_NORMAL: True
 OPTIMIZER:
   TYPE: "Adam"
-  LR: 6e-4
+  LR: 8e-4
 LR_SCHEDULER:
   TYPE: 'StepLR'
   StepLR:
     step_size: 1500
     gamma: 0.9
 TRAIN:
-  BATCH_SIZE: 6
+  BATCH_SIZE: 8
   NUM_WORKERS: 2
   LOG_PERIOD: 20
   CHECKPOINT_PERIOD: 1500
@@ -54,7 +56,7 @@ LOSS:
     WEIGHT: 0.0
   SIM_DISP:
     WEIGHT: 1.0
-  SIM_NORMAL: 0.0
+  SIM_NORMAL: 1.0
   SIM_GRAD: 0.0
   REAL_NORMAL: 0.0
   REAL_GRAD: 0.0
