@@ -25,6 +25,8 @@ MODEL_TYPE: "CGIStereo"
 CGIStereo:
   MAX_DISP: 256
   DISPARITY_MODE: "log_linear"
+  LOGLINEAR_DISP_C: 0.01
+  PREDICT_NORMAL: False
 OPTIMIZER:
   TYPE: "Adam"
   LR: 8e-4
