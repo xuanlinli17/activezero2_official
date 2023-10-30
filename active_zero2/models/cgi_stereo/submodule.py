@@ -79,7 +79,6 @@ class Conv2x(nn.Module):
         x = self.conv2(x)
         return x
 
-
 def disparity_regression(x, maxdisp):
     assert len(x.shape) == 4
     disp_values = torch.arange(0, maxdisp, dtype=x.dtype, device=x.device)

@@ -221,7 +221,8 @@ class normal_predictor(nn.Module):
             nn.ConvTranspose2d(in_channels * n_disp // 4, 3, kernel_size=4, padding=1, stride=2, bias=False)            
         )
 
-    def forward(self, x, imgs):
+    def forward(self, x, imgs, coords):
+        # x: [bs, in_channels, maxdisp//4, H/4, W/4]
         conv1 = self.conv1(x)
         conv2 = self.conv2(conv1)
 
@@ -242,14 +243,84 @@ class normal_predictor(nn.Module):
         normal = self.normal_head(conv) # [B, 3, H, W]
         normal = normal / (normal.norm(dim=1, keepdim=True) + 1e-8)
         return normal
+    
+class normal_predictor_v2(nn.Module):
+    def __init__(self, in_channels, n_disp):
+        super(normal_predictor_v2, self).__init__()
+
+        self.conv1 = nn.Sequential(BasicConv(in_channels + 3, in_channels*2, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=2, dilation=1),
+                                   BasicConv(in_channels*2, in_channels*2, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=1, dilation=1))
+                                    
+        self.conv2 = nn.Sequential(BasicConv(in_channels*2, in_channels*4, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=2, dilation=1),
+                                   BasicConv(in_channels*4, in_channels*4, is_3d=True, bn=True, relu=True, kernel_size=3,
+                                             padding=1, stride=1, dilation=1))    
+
+        self.conv2_up = BasicConv(in_channels*4, in_channels*2, deconv=True, is_3d=True, bn=True,
+                                  relu=True, kernel_size=(4, 4, 4), padding=(1, 1, 1), stride=(2, 2, 2))
+
+        self.conv1_up = BasicConv(in_channels*2, in_channels, deconv=True, is_3d=True, bn=False,
+                                  relu=False, kernel_size=(4, 4, 4), padding=(1, 1, 1), stride=(2, 2, 2))
+
+        self.agg_1 = nn.Sequential(BasicConv(in_channels*4, in_channels*2, is_3d=True, kernel_size=1, padding=0, stride=1),
+                                   BasicConv(in_channels*2, in_channels*2, is_3d=True, kernel_size=3, padding=1, stride=1),
+                                   BasicConv(in_channels*2, in_channels*2, is_3d=True, kernel_size=3, padding=1, stride=1))
+
+        self.CGF_16 = Context_Geometry_Fusion(in_channels*4, 192)
+        self.CGF_8 = Context_Geometry_Fusion(in_channels*2, 64)
+        
+        self.pool = nn.Sequential(BasicConv(in_channels, in_channels*2, is_3d=True, kernel_size=(2,3,3), padding=(0,1,1), stride=(2,1,1)),
+                                  BasicConv(in_channels*2, in_channels*4, is_3d=True, kernel_size=(2,3,3), padding=(0,1,1), stride=(2,1,1)),
+                                  BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(2,3,3), padding=(0,1,1), stride=(2,1,1)))
+        self.normal_convs = nn.Sequential(
+            BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(1,3,3), padding=(0,1,1), stride=(1,1,1), dilation=(1,1,1)),
+            BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(1,3,3), padding=(0,2,2), stride=(1,1,1), dilation=(1,2,2)),
+            BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(1,3,3), padding=(0,4,4), stride=(1,1,1), dilation=(1,4,4)),
+            BasicConv(in_channels*4, in_channels*3, is_3d=True, kernel_size=(1,3,3), padding=(0,8,8), stride=(1,1,1), dilation=(1,8,8)),
+            BasicConv(in_channels*4, in_channels*3, is_3d=True, kernel_size=(1,3,3), padding=(0,16,16), stride=(1,1,1), dilation=(1,16,16)),
+            BasicConv(in_channels*3, in_channels*2, is_3d=True, kernel_size=(1,3,3), padding=(0,1,1), stride=(1,1,1), dilation=(1,1,1)),
+            BasicConv(in_channels*3, in_channels*2, is_3d=True, kernel_size=(1,3,3), padding=(0,1,1), stride=(1,1,1), dilation=(1,1,1)),
+        )
+        self.normal_head = nn.Sequential(
+            BasicConv(in_channels * 2, in_channels, 
+                      deconv=True, is_3d=True, kernel_size=(1,4,4), padding=(0,1,1), stride=(1,2,2)),
+            BasicConv(in_channels, 3, 
+                      deconv=True, is_3d=True, kernel_size=(1,4,4), padding=(0,1,1), stride=(1,2,2)),          
+        )
+
+    def forward(self, x, imgs, coords):
+        # x: [bs, in_channels, maxdisp//4, H/4, W/4]; coords: [bs, 3, maxdisp//4, H/4, W/4]
+        conv1 = self.conv1(torch.cat([x, coords], dim=1))
+        conv2 = self.conv2(conv1)
+
+        conv2 = self.CGF_16(conv2, imgs[2])
+        conv2_up = self.conv2_up(conv2)
+        if conv2_up.shape[-2:] != conv1.shape[-2:]:
+            conv2_up = F.interpolate(conv2_up, size=conv1.shape[-3:], mode='trilinear', align_corners=True)
+
+        conv1 = torch.cat((conv2_up, conv1), dim=1)
+        conv1 = self.agg_1(conv1)
+
+        conv1 = self.CGF_8(conv1, imgs[1])
+        conv = self.conv1_up(conv1)
+
+        B, C, D, H_div4, W_div4 = conv.shape
+        conv = conv.reshape(B, C*D, H_div4, W_div4)
+        
+        normal = self.normal_head(self.normal_convs(self.pool(conv))).sum(dim=2) # [B, 3, H, W]
+        normal = normal / (normal.norm(dim=1, keepdim=True) + 1e-8)
+        return normal
 
 
 class CGI_Stereo(nn.Module):
     def __init__(self, maxdisp, disparity_mode='regular',
                  loglinear_disp_min_depth=0.04, loglinear_disp_max_depth=3.0, loglinear_disp_c=0.01,
-                 predict_normal=False):
+                 predict_normal=False, predict_normal_v2=False):
         super(CGI_Stereo, self).__init__()
         self.maxdisp = maxdisp 
+        assert self.maxdisp % 4 == 0
         self.disparity_mode = disparity_mode
         assert self.disparity_mode in ['regular', 'log_linear']
         if self.disparity_mode == 'log_linear':
@@ -290,9 +361,11 @@ class CGI_Stereo(nn.Module):
         self.hourglass_fusion = hourglass_fusion(8)
         self.corr_stem = BasicConv(1, 8, is_3d=True, kernel_size=3, stride=1, padding=1)
         
-        self.predict_normal = predict_normal
-        if self.predict_normal:
+        self.predict_normal = predict_normal or predict_normal_v2
+        if predict_normal:
             self.normal_predictor = normal_predictor(8, self.maxdisp // 4)
+        elif predict_normal_v2:
+            self.normal_predictor = normal_predictor_v2(8, self.maxdisp // 4)
         else:
             self.normal_predictor = None
 
@@ -330,7 +403,7 @@ class CGI_Stereo(nn.Module):
             )
         corr_volume = self.corr_stem(corr_volume)
         feat_volume = self.semantic(features_left[0]).unsqueeze(2)
-        volume = self.agg(feat_volume * corr_volume)
+        volume = self.agg(feat_volume * corr_volume) # [bs, C, maxdisp, H/4, W/4]
         cost = self.hourglass_fusion(volume, features_left)
 
         xspx = self.spx_4(features_left[0])
@@ -352,7 +425,20 @@ class CGI_Stereo(nn.Module):
         }
         
         if predict_normal:
-            pred_dict["normal"] = self.normal_predictor(volume, features_left)
+            bs, H_div_4, W_div_4 = volume.shape[0], volume.shape[-2], volume.shape[-1]
+            h_arr = torch.arange(H_div_4, device=volume.device)[None, None, :, None].tile(bs, self.maxdisp//4, 1, W_div_4)
+            w_arr = torch.arange(W_div_4, device=volume.device)[None, None, None, :].tile(bs, self.maxdisp//4, H_div_4, 1)
+            h_arr, w_arr = (h_arr + 0.5) * 4, (w_arr + 0.5) * 4
+            disp_arange = torch.arange(0, self.maxdisp, 4, device=volume.device)[None, :].repeat_interleave(bs, dim=0)
+            if self.disparity_mode == "log_linear":
+                disp_arange = self.to_raw_disparity(disp_arange[:, None, :], data_batch["focal_length"], data_batch["baseline"]).squeeze() # [bs, maxdisp//4]
+            depth_arange = (data_batch["focal_length"][:, None] * data_batch["baseline"][:, None]) / (disp_arange + 1e-8)
+            depth_arange = depth_arange[:, :, None, None].tile(1, 1, H_div_4, W_div_4)
+            h_arr, w_arr = h_arr * depth_arange, w_arr * depth_arange
+            coords = torch.stack((w_arr, h_arr, depth_arange), dim=1) # [bs, 3, maxdisp//4, H/4, W/4]
+            intrinsic_l = data_batch["intrinsic_l"] # [bs, 3, 3]
+            coords = torch.einsum('bij,bjxyz->bixyz', torch.linalg.inv(intrinsic_l), coords)
+            pred_dict["normal"] = self.normal_predictor(volume, features_left, coords)
         
         return pred_dict
         
