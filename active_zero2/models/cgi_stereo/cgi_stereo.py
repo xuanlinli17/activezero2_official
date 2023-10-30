@@ -278,10 +278,10 @@ class normal_predictor_v2(nn.Module):
             BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(1,3,3), padding=(0,1,1), stride=(1,1,1), dilation=(1,1,1)),
             BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(1,3,3), padding=(0,2,2), stride=(1,1,1), dilation=(1,2,2)),
             BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(1,3,3), padding=(0,4,4), stride=(1,1,1), dilation=(1,4,4)),
-            BasicConv(in_channels*4, in_channels*3, is_3d=True, kernel_size=(1,3,3), padding=(0,8,8), stride=(1,1,1), dilation=(1,8,8)),
+            BasicConv(in_channels*4, in_channels*4, is_3d=True, kernel_size=(1,3,3), padding=(0,8,8), stride=(1,1,1), dilation=(1,8,8)),
             BasicConv(in_channels*4, in_channels*3, is_3d=True, kernel_size=(1,3,3), padding=(0,16,16), stride=(1,1,1), dilation=(1,16,16)),
             BasicConv(in_channels*3, in_channels*2, is_3d=True, kernel_size=(1,3,3), padding=(0,1,1), stride=(1,1,1), dilation=(1,1,1)),
-            BasicConv(in_channels*3, in_channels*2, is_3d=True, kernel_size=(1,3,3), padding=(0,1,1), stride=(1,1,1), dilation=(1,1,1)),
+            BasicConv(in_channels*2, in_channels*2, is_3d=True, kernel_size=(1,3,3), padding=(0,1,1), stride=(1,1,1), dilation=(1,1,1)),
         )
         self.normal_head = nn.Sequential(
             BasicConv(in_channels * 2, in_channels, 
@@ -306,10 +306,9 @@ class normal_predictor_v2(nn.Module):
         conv1 = self.CGF_8(conv1, imgs[1])
         conv = self.conv1_up(conv1)
 
-        B, C, D, H_div4, W_div4 = conv.shape
-        conv = conv.reshape(B, C*D, H_div4, W_div4)
-        
-        normal = self.normal_head(self.normal_convs(self.pool(conv))).sum(dim=2) # [B, 3, H, W]
+        normal = self.pool(conv)
+        normal = self.normal_convs(normal)
+        normal = self.normal_head(normal).sum(dim=2) # [B, 3, H, W]
         normal = normal / (normal.norm(dim=1, keepdim=True) + 1e-8)
         return normal
 
