@@ -1,0 +1,80 @@
+DATA:
+  TRAIN:
+    SIM:
+      ROOT_DIR: "/xuanlin-slow-southeast/modified-messy-table-dataset/data/"
+      SPLIT_FILE: "/xuanlin-slow-southeast/modified-messy-table-dataset/train.txt"
+      META_NAME: "meta.pkl"
+      DEPTH_NAME: "depthL.png"
+      LEFT_NAME: "0128_irL_kuafu_half.png"
+      RIGHT_NAME: "0128_irR_kuafu_half.png"
+      NORMAL_NAME: "normalL.png"
+      HEIGHT: 240
+      WIDTH: 424
+      IMG_PREPROCESS_RESIZE: (424, 240)
+    REAL:
+      ROOT_DIR: "/xuanlin-slow-southeast/messy-table-d435-real/data/"
+      SPLIT_FILE: "/xuanlin-slow-southeast/messy-table-d435-real/list.txt"
+      LEFT_NAME: "ir_l_real.png"
+      RIGHT_NAME: "ir_r_real.png"
+      LEFT_PATTERN_NAME: "ir_l_real_temporal_ps9_t0.005.png"
+      RIGHT_PATTERN_NAME: "ir_r_real_temporal_ps9_t0.005.png"
+      HEIGHT: 240
+      WIDTH: 424
+      IMG_PREPROCESS_RESIZE: (424, 240)
+  VAL:
+    SIM:
+      ROOT_DIR: "/xuanlin-slow-southeast/modified-messy-table-dataset-test/data/"
+      SPLIT_FILE: "/xuanlin-slow-southeast/modified-messy-table-dataset-test/test.txt"
+      META_NAME: "meta.pkl"
+      DEPTH_NAME: "depthL.png"
+      LEFT_NAME: "0128_irL_kuafu_half.png"
+      RIGHT_NAME: "0128_irR_kuafu_half.png"
+      NORMAL_NAME: "normalL.png"
+      HEIGHT: 240
+      WIDTH: 424
+      IMG_PREPROCESS_RESIZE: (424, 240)
+MODEL_TYPE: "CGIStereo"
+CGIStereo:
+  MAX_DISP: 256
+  DISPARITY_MODE: "log_linear"
+  LOGLINEAR_DISP_C: 0.01
+  PREDICT_NORMAL: True
+OPTIMIZER:
+  TYPE: "Adam"
+  LR: 8e-4
+LR_SCHEDULER:
+  TYPE: 'StepLR'
+  StepLR:
+    step_size: 1500
+    gamma: 0.9
+TRAIN:
+  BATCH_SIZE: 8
+  NUM_WORKERS: 2
+  LOG_PERIOD: 20
+  CHECKPOINT_PERIOD: 1500
+  MAX_TO_KEEP: 30
+  MAX_ITER: 30000
+VAL:
+  BATCH_SIZE: 5
+  NUM_WORKERS: 1
+  PERIOD: 500
+  LOG_PERIOD: 20
+LOSS:
+  REAL_REPROJ:
+    WEIGHT: 2.0
+  SIM_REPROJ:
+    WEIGHT: 0.0
+  SIM_DISP:
+    WEIGHT: 1.0
+  SIM_NORMAL: 1.0
+  SIM_GRAD: 0.0
+  REAL_NORMAL: 0.0
+  REAL_GRAD: 0.0
+  EDGE: 0.0
+DATA_AUG:
+  SIM_IR: False
+  DOMAINS: ("sim",)
+  GAUSSIAN_MAX: 1.5
+  GAUSSIAN_KERNEL: 5
+
+  # todo: check optimizer and lr_scheduler
