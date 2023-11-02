@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     save_dir = Path(root_dir).resolve()
     save_idx = 0
-    while all([os.path.exists(f'{str(save_dir)}/{save_idx}_power_{power}_images.npz') for power in power_list]):
+    while all([os.path.exists(f'{str(save_dir)}/{save_idx}_power_{power}_images.npz') for power in power_list[1:]]):
         save_idx += 1
 
     # NOTE: replace device_sn with the one you have. See terminal output

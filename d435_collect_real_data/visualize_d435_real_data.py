@@ -2,8 +2,9 @@ from matplotlib import pyplot as plt
 import numpy as np
 import cv2
 
-idx = 83
-power_list = [60, 120, 180, 240, 300, 360]
+idx = 173
+
+power_list = [0, 60, 120, 180, 240, 300, 360]
 
 plt.figure(figsize=(30, 30))
 for i, power in enumerate(power_list):
