@@ -78,7 +78,7 @@ def render_scene(
         cam_intrinsic_base = np.array([[605.12158203125,     0., 424.5927734375], [0.,    604.905517578125, 236.668975830078], [0, 0, 1]]) # intrinsic under default resolution
         cam_ir_intrinsic_base = np.array([[430.139801025391,   0., 425.162841796875], [0.,   430.139801025391, 235.276519775391], [0, 0, 1]])
         cam_intrinsic_hand = np.array(cam_intrinsic_base)
-        cam_ir_intrinsic_hand = np.array(cam_intrinsic_base)
+        cam_ir_intrinsic_hand = np.array(cam_ir_intrinsic_base)
         cam_irL_rel_extrinsic_base = np.array([[0.9999489188194275, 0.009671091102063656, 0.0029452370945364237, 0.00015650546993128955],
                                               [-0.009709948673844337, 0.999862015247345, 0.013478035107254982, -0.014897654764354229],
                                               [-0.0028144833631813526, -0.013505944050848484, 0.9999048113822937, -1.1531494237715378e-05],
