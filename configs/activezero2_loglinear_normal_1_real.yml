@@ -14,6 +14,7 @@ DATA:
     REAL:
       ROOT_DIR: "/xuanlin-slow-southeast/messy-table-d435-real/data/"
       SPLIT_FILE: "/xuanlin-slow-southeast/messy-table-d435-real/list.txt"
+      META_NAME: "meta.pkl"
       LEFT_NAME: "ir_l_real.png"
       RIGHT_NAME: "ir_r_real.png"
       LEFT_PATTERN_NAME: "ir_l_real_temporal_ps9_t0.005.png"
