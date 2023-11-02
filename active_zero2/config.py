@@ -374,6 +374,7 @@ _C.TRAIN = CN()
 
 # Batch size
 _C.TRAIN.BATCH_SIZE = 1
+_C.TRAIN.REAL_BATCH_SIZE = -1 # if < 0, use _C.TRAIN.BATCH_SIZE
 # Number of workers (dataloader)
 _C.TRAIN.NUM_WORKERS = 1
 # Period to save checkpoints. 0 for disable
@@ -393,6 +394,7 @@ _C.VAL = CN()
 
 # Batch size
 _C.VAL.BATCH_SIZE = 1
+_C.VAL.REAL_BATCH_SIZE = -1 # use VAL.BATCH_SIZE if < 0
 # Number of workers (dataloader)
 _C.VAL.NUM_WORKERS = 1
 # Period to validate. 0 for disable
@@ -411,6 +413,7 @@ _C.VAL.METRIC_ASCEND = True
 _C.TEST = CN()
 
 _C.TEST.BATCH_SIZE = 1
+_C.TEST.REAL_BATCH_SIZE = -1 # use TEST.BATCH_SIZE if < 0
 _C.TEST.NUM_WORKERS = 1
 # The path of weights to be tested. "@" has similar syntax as OUTPUT_DIR.
 # If not set, the last checkpoint will be used by default.

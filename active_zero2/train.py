@@ -182,7 +182,8 @@ if __name__ == "__main__":
             train_real_sampler = DistributedSampler(
                 train_real_dataset, num_replicas=dist.get_world_size(), rank=dist.get_rank()
             )
-            train_real_sampler = BatchSampler(train_real_sampler, batch_size=cfg.TRAIN.BATCH_SIZE, drop_last=True)
+            real_batch_size = cfg.TRAIN.BATCH_SIZE if cfg.TRAIN.REAL_BATCH_SIZE <= 0 else cfg.TRAIN.REAL_BATCH_SIZE
+            train_real_sampler = BatchSampler(train_real_sampler, batch_size=real_batch_size, drop_last=True)
             train_real_sampler = IterationBasedBatchSampler(
                 train_real_sampler, num_iterations=cfg.TRAIN.MAX_ITER, start_iter=start_iter
             )
@@ -214,7 +215,7 @@ if __name__ == "__main__":
         if val_real_dataset:
             val_real_loader = DataLoader(
                 val_real_dataset,
-                batch_size=cfg.VAL.BATCH_SIZE,
+                batch_size=cfg.VAL.BATCH_SIZE if cfg.VAL.REAL_BATCH_SIZE <= 0 else cfg.VAL.REAL_BATCH_SIZE,
                 num_workers=cfg.VAL.NUM_WORKERS,
                 drop_last=False,
                 pin_memory=False,
@@ -244,7 +245,8 @@ if __name__ == "__main__":
             train_sim_loader = None
         if train_real_dataset:
             sampler = RandomSampler(train_real_dataset, replacement=False)
-            batch_sampler = BatchSampler(sampler, batch_size=cfg.TRAIN.BATCH_SIZE, drop_last=True)
+            real_batch_size = cfg.TRAIN.BATCH_SIZE if cfg.TRAIN.REAL_BATCH_SIZE <= 0 else cfg.TRAIN.REAL_BATCH_SIZE
+            batch_sampler = BatchSampler(sampler, batch_size=real_batch_size, drop_last=True)
             batch_sampler = IterationBasedBatchSampler(
                 batch_sampler, num_iterations=cfg.TRAIN.MAX_ITER, start_iter=start_iter
             )
@@ -276,7 +278,7 @@ if __name__ == "__main__":
         if val_real_dataset:
             val_real_loader = DataLoader(
                 val_real_dataset,
-                batch_size=cfg.VAL.BATCH_SIZE,
+                batch_size=cfg.VAL.BATCH_SIZE if cfg.VAL.REAL_BATCH_SIZE <= 0 else cfg.VAL.REAL_BATCH_SIZE,
                 num_workers=cfg.VAL.NUM_WORKERS,
                 shuffle=False,
                 drop_last=False,
