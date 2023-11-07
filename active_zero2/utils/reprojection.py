@@ -36,15 +36,17 @@ def apply_disparity_v2(img, disp):
 
     # Apply shift in X direction
     x_shifts = disp[:, 0, :, :]  # Disparity is passed in NCHW format with 1 channel
-    flow_field = torch.stack((x_base + x_shifts, y_base), dim=3)
+    flow_field = torch.stack((x_base + x_shifts, y_base), dim=3) # [B, H, W, 2]
 
     # In grid_sample coordinates are assumed to be between -1 and 1
     output = F.grid_sample(img, 2 * flow_field - 1, mode="bilinear", padding_mode="zeros", align_corners=True)
 
-    return output
+    return output, flow_field
 
 
 def compute_reproj_loss_patch(input_L, input_R, pred_disp_l, mask=None, ps=5):
+    # pred_disp_l: [B, 1, H, W]
+    assert len(pred_disp_l.shape) == 4 and pred_disp_l.shape[1] == 1, f"Input pred_disp_l should have shape [B, 1, H, W], bug got {pred_disp_l.shape}"
     assert ps % 2 == 1
     bs, c, h, w = input_L.shape
     unfold_func = torch.nn.Unfold(kernel_size=(ps, ps), stride=1, padding=(ps - 1) // 2, dilation=1)
@@ -52,12 +54,16 @@ def compute_reproj_loss_patch(input_L, input_R, pred_disp_l, mask=None, ps=5):
     input_R = unfold_func(input_R)
     input_L = input_L.reshape(bs, c * ps * ps, h, w)
     input_R = input_R.reshape(bs, c * ps * ps, h, w)
-    input_L_warped = apply_disparity_v2(input_R, -pred_disp_l)
+    input_L_warped, warped_coords = apply_disparity_v2(input_R, -pred_disp_l)
     if mask is not None:
+        assert len(mask.shape) == 4 and mask.shape[1] == 1, "Input mask should have shape [B, 1, H, W]"
         _, new_c, _, _ = input_L.shape
         mask = mask.repeat(1, new_c, 1, 1)
     else:
         mask = torch.ones_like(input_L_warped).type(torch.bool)
+    # Prevent calculating reprojection loss where a patch is seen on the left image but not on the right image
+    mask = mask & (warped_coords[..., 0] >= (((ps - 1) // 2 + 1) / (w - 1)))[:, None, :, :] 
+
     reprojection_loss = F.mse_loss(input_L_warped[mask], input_L[mask])
 
     return reprojection_loss

@@ -358,6 +358,7 @@ class CGI_Stereo(nn.Module):
         
     def to_processed_disparity(self, raw_disp, focal_length, baseline):
         # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
+        assert len(raw_disp.shape) == 3
         depth = (focal_length * baseline)[:, None, None] / (raw_disp + 1e-8)
         disp_t = (
                 (torch.log(depth + self.loglinear_disp_c) - np.log(self.loglinear_disp_min_depth + self.loglinear_disp_c))
@@ -366,7 +367,8 @@ class CGI_Stereo(nn.Module):
         return self.maxdisp - self.maxdisp * disp_t
 
     def to_raw_disparity(self, processed_disp, focal_length, baseline):
-        # raw_disp: [B, H, W], focal_length: [B], baseline: [B]
+        # processed_disp: [B, H, W], focal_length: [B], baseline: [B]
+        assert len(processed_disp.shape) == 3
         disp_t = (self.maxdisp - processed_disp) / self.maxdisp
         depth = (
             ((self.loglinear_disp_min_depth + self.loglinear_disp_c) ** (1 - disp_t)) 
@@ -418,21 +420,34 @@ class CGI_Stereo(nn.Module):
 
     def compute_reproj_loss(self, data_batch, pred_dict, use_mask: bool, patch_size: int, only_last_pred: bool):
         if use_mask:
-            disp_gt = data_batch["img_disp_l"]
+            disp_gt = data_batch["img_disp_l"] # [B, 1, H, W]
             # Get stereo loss on sim
             # Note in training we do not exclude bg
             if self.disparity_mode == 'regular':
                 mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
             else:
-                disp_gt_processed = self.to_processed_disparity(disp_gt, data_batch["focal_length"], data_batch["baseline"])
+                disp_gt_processed = self.to_processed_disparity(disp_gt.squeeze(1), data_batch["focal_length"], data_batch["baseline"])[:, None ,:, :]
                 mask = (disp_gt_processed <= self.maxdisp - 1) * (disp_gt_processed >= 0)
             mask.detach()
         else:
             mask = None
+        
+
         if only_last_pred:
-            pred_disp_l = pred_dict["pred_orig"][:, None, :, :]
+            pred_disp_l = pred_dict["pred_orig"] # [B, H, W]
             if self.disparity_mode == 'log_linear':
                 pred_disp_l = self.to_raw_disparity(pred_disp_l, data_batch["focal_length"], data_batch["baseline"])
+            pred_disp_l = pred_disp_l[:, None, :, :]
+            """
+            # filter out pixels close to the camera when calculating the reprojection loss
+            mask_dist_filter = ((data_batch["focal_length"] * data_batch["baseline"])[:, None, None] / (pred_disp_l + 1e-8)) > 0.3
+            pred_disp_l = pred_disp_l[:, None, :, :]
+            mask_dist_filter = mask_dist_filter[:, None, :, :]
+            if mask is None:
+                mask = mask_dist_filter
+            else:
+                mask = mask * mask_dist_filter
+            """
             loss_reproj = compute_reproj_loss_patch(
                 data_batch["img_pattern_l"],
                 data_batch["img_pattern_r"],
@@ -446,9 +461,20 @@ class CGI_Stereo(nn.Module):
             loss_reproj = 0.0
             for pred_name, loss_weight in zip(["pred_div4", "pred_orig"], [0.5, 1.0]):
                 if pred_name in pred_dict:
-                    pred_disp_l = pred_dict[pred_name][:, None, :, :]
+                    pred_disp_l = pred_dict[pred_name]
                     if self.disparity_mode == 'log_linear':
                         pred_disp_l = self.to_raw_disparity(pred_disp_l, data_batch["focal_length"], data_batch["baseline"])
+                    pred_disp_l = pred_disp_l[:, None, :, :]
+                    """
+                    # filter out pixels close to the camera when calculating the reprojection loss
+                    mask_dist_filter = ((data_batch["focal_length"] * data_batch["baseline"])[:, None, None] / (pred_disp_l + 1e-8)) > 0.3
+                    pred_disp_l = pred_disp_l[:, None, :, :]
+                    mask_dist_filter = mask_dist_filter[:, None, :, :]
+                    if mask is None:
+                        mask = mask_dist_filter
+                    else:
+                        mask = mask * mask_dist_filter
+                    """
                     loss_reproj += loss_weight * compute_reproj_loss_patch(
                         data_batch["img_pattern_l"],
                         data_batch["img_pattern_r"],
@@ -468,7 +494,7 @@ class CGI_Stereo(nn.Module):
             if self.disparity_mode == 'regular':
                 mask = (disp_gt < self.maxdisp) * (disp_gt > 0)
             else:
-                disp_gt_processed = self.to_processed_disparity(disp_gt, data_batch["focal_length"], data_batch["baseline"])
+                disp_gt_processed = self.to_processed_disparity(disp_gt.squeeze(1), data_batch["focal_length"], data_batch["baseline"])[:, None, :, :]
                 mask = (disp_gt_processed <= self.maxdisp - 1) * (disp_gt_processed >= 0)
             mask = mask.squeeze(1) # [B, H, W]
             mask.detach()

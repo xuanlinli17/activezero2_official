@@ -111,11 +111,11 @@ class MessyTableDataset(Dataset):
 
         return img_dirs
 
-    def resize_img(self, img_l, img_r):
+    def resize_img(self, img_l, img_r, interpolation_mode=cv2.INTER_AREA):
         if self.img_preprocess_resize is not None:
             assert isinstance(self.img_preprocess_resize, tuple)
-            img_l = cv2.resize(img_l, self.img_preprocess_resize, interpolation=cv2.INTER_CUBIC)
-            img_r = cv2.resize(img_r, self.img_preprocess_resize, interpolation=cv2.INTER_CUBIC)
+            img_l = cv2.resize(img_l, self.img_preprocess_resize, interpolation=interpolation_mode)
+            img_r = cv2.resize(img_r, self.img_preprocess_resize, interpolation=interpolation_mode)
             
         return img_l, img_r
     
@@ -132,12 +132,28 @@ class MessyTableDataset(Dataset):
         if self.left_pattern_name and self.right_pattern_name:
             img_pattern_l = np.array(Image.open(img_dir / self.left_pattern_name).convert(mode="L")) / 255  # [H, W]
             img_pattern_r = np.array(Image.open(img_dir / self.right_pattern_name).convert(mode="L")) / 255
+            assert img_pattern_l.shape == img_pattern_r.shape
+            """
+            if (img_pattern_l.shape[1] % self.img_preprocess_resize[0] == 0) and (img_pattern_l.shape[0] % self.img_preprocess_resize[1] == 0):
+                img_pattern_l = img_pattern_l[::img_pattern_l.shape[0]//self.img_preprocess_resize[1], ::img_pattern_l.shape[1]//self.img_preprocess_resize[0]]
+                img_pattern_r = img_pattern_r[::img_pattern_l.shape[0]//self.img_preprocess_resize[1], ::img_pattern_l.shape[1]//self.img_preprocess_resize[0]]
+            else:
+            img_pattern_l, img_pattern_r = self.resize_img(img_pattern_l, img_pattern_r, interpolation_mode=cv2.INTER_NEAREST_EXACT)
+            """
             img_pattern_l, img_pattern_r = self.resize_img(img_pattern_l, img_pattern_r)
             pattern_h, pattern_w = img_pattern_l.shape[:2]
 
         if self.left_off_name and self.right_off_name:
             img_off_l = np.array(Image.open(img_dir / self.left_off_name).convert(mode="L")) / 255  # [H, W]
             img_off_r = np.array(Image.open(img_dir / self.right_off_name).convert(mode="L")) / 255  # [H, W]
+            assert img_off_l.shape == img_off_r.shape
+            """
+            if (img_off_l.shape[1] % self.img_preprocess_resize[0] == 0) and (img_off_l.shape[0] % self.img_preprocess_resize[1] == 0):
+                img_off_l = img_off_l[::img_off_l.shape[0]//self.img_preprocess_resize[1], ::img_off_l.shape[1]//self.img_preprocess_resize[0]]
+                img_off_r = img_off_r[::img_off_l.shape[0]//self.img_preprocess_resize[1], ::img_off_l.shape[1]//self.img_preprocess_resize[0]]
+            else:
+                img_off_l, img_off_r = self.resize_img(img_off_l, img_off_r, interpolation_mode=cv2.INTER_NEAREST_EXACT)
+            """
             img_off_l, img_off_r = self.resize_img(img_off_l, img_off_r)
             off_h, off_w = img_off_l.shape[:2]
 

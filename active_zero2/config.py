@@ -375,6 +375,7 @@ _C.TRAIN = CN()
 # Batch size
 _C.TRAIN.BATCH_SIZE = 1
 _C.TRAIN.REAL_BATCH_SIZE = -1 # if < 0, use _C.TRAIN.BATCH_SIZE
+_C.TRAIN.REAL_START_ITER = 0
 # Number of workers (dataloader)
 _C.TRAIN.NUM_WORKERS = 1
 # Period to save checkpoints. 0 for disable

@@ -319,6 +319,7 @@ if __name__ == "__main__":
         loss_dict = {}
         time_dict = {}
         optimizer.zero_grad()
+        # total_loss = 0.0
         # sim data
         if train_sim_loader:
             loss = 0
@@ -394,6 +395,8 @@ if __name__ == "__main__":
                     loss += pred_dict["normal3"].mean() * 0.0
 
             loss_dict["loss_sim_total"] = loss
+            # total_loss += loss
+            # torch.cuda.synchronize()
             loss.backward()
         # # find unused parameters
         # print("########################")
@@ -403,7 +406,7 @@ if __name__ == "__main__":
         # print("========================")
         # real data
         real_tic = time.time()
-        if train_real_loader:
+        if train_real_loader and iteration >= cfg.TRAIN.REAL_START_ITER:
             loss = 0
             data_batch = next(train_real_loader)
             real_data_time = time.time() - real_tic
@@ -465,7 +468,10 @@ if __name__ == "__main__":
                         loss += pred_dict["normal3"].mean() * 0.0
 
             loss_dict["loss_real_total"] = loss
+            # total_loss += loss
+            # torch.cuda.synchronize()
             loss.backward()
+        # total_loss.backward()
 
         # find unused parameters
         # print("########################")
